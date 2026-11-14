@@ -23,3 +23,8 @@ unity/.utmp/
 # Conta fixa de uso pessoal (senha), nunca no Git
 unity/Assets/JogoDaVida/Resources/conta_local.json
 unity/Assets/JogoDaVida/Resources/conta_local.json.meta
+
+# FBX brutos do Mixamo (o com skin tem ~87 MB): só os .anim extraídos vão para o Git
+unity/Assets/MixamoBruto/
+unity/Assets/MixamoBruto.meta
+mixamo/
