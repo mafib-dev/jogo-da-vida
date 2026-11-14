@@ -19,7 +19,8 @@ namespace JogoDaVida.EditorTools
     ///    fica na própria pose).
     ///    Os clipes de sentar (Stand To Sit, Sitting Idle) são extraídos mas não entram no
     ///    controller: o "Sitting Idle" baixado é sentado no chão e o "Stand To Sit" termina numa
-    ///    cadeira, então não encaixam na beira da cama. O Abatido usa o Sad Idle em pé.
+    ///    cadeira, então não encaixam na beira da cama. O Abatido usa o Sad Idle em pé, misturado
+    ///    com o Breathing Idle num blend tree (parâmetro "Tristeza").
     /// 3. Gera o AnimatorController (Arte/Personagem/Animacoes/Personagem.controller) e o liga ao
     ///    prefab Resources/PersonagemHumano.prefab, para entrar no APK.
     ///
@@ -34,6 +35,8 @@ namespace JogoDaVida.EditorTools
         public const string Controlador = PastaAnim + "Personagem.controller";
         const string Prefab = "Assets/JogoDaVida/Resources/PersonagemHumano.prefab";
         const string ComSkin = "Ch08_nonPBR@Happy Idle.fbx";
+        /// <summary>Parâmetro do blend tree do Abatido (0 = Breathing Idle, 1 = Sad Idle).</summary>
+        public const string ParametroTristeza = "Tristeza";
 
         /// <summary>Clipe extraído: arquivo do Mixamo, nome do .anim, se faz loop.</summary>
         static readonly (string fbx, string anim, bool loop)[] Clipes =
@@ -195,18 +198,43 @@ namespace JogoDaVida.EditorTools
                 AssetDatabase.DeleteAsset(Controlador);
             var ctrl = AnimatorController.CreateAnimatorControllerAtPath(Controlador);
             var maquina = ctrl.layers[0].stateMachine;
+            ctrl.AddParameter(ParametroTristeza, AnimatorControllerParameterType.Float);
+            var parametros = ctrl.parameters;
+            parametros[0].defaultFloat = 0.3f;   // o PersonagemHumano define o valor de verdade (PesoTristeza)
+            ctrl.parameters = parametros;
+
             float y = 0;
             foreach (var (estado, anim) in Estados)
             {
                 var clipe = AssetDatabase.LoadAssetAtPath<AnimationClip>(PastaAnim + anim + ".anim");
                 var s = maquina.AddState(estado, new Vector3(300, y += 60, 0));
-                s.motion = clipe;
+                s.motion = estado == "Abatido" ? ArvoreAbatido(ctrl) : clipe;
                 s.writeDefaultValues = true;
             }
             maquina.defaultState = maquina.states.First(s => s.state.name == "Normal").state;
             // As trocas (crossfade de 0,4 s) são feitas pelo PersonagemHumano, que sabe o humor atual.
             EditorUtility.SetDirty(ctrl);
             AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>
+        /// Abatido: blend tree 1D entre Breathing Idle (0) e Sad Idle (1). O Sad Idle puro deixa os
+        /// ombros caídos demais e o corpo corcunda; misturado, fica só desanimado.
+        /// </summary>
+        static BlendTree ArvoreAbatido(AnimatorController ctrl)
+        {
+            var arvore = new BlendTree
+            {
+                name = "Abatido",
+                blendType = BlendTreeType.Simple1D,
+                blendParameter = ParametroTristeza,
+                useAutomaticThresholds = false,
+                hideFlags = HideFlags.HideInHierarchy,
+            };
+            AssetDatabase.AddObjectToAsset(arvore, ctrl);
+            arvore.AddChild(AssetDatabase.LoadAssetAtPath<AnimationClip>(PastaAnim + "BreathingIdle.anim"), 0f);
+            arvore.AddChild(AssetDatabase.LoadAssetAtPath<AnimationClip>(PastaAnim + "SadIdle.anim"), 1f);
+            return arvore;
         }
 
         static void LigarAoPrefab()

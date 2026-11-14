@@ -96,6 +96,11 @@ namespace JogoDaVida.Cena
         // ---------- Animator (clipes do Mixamo) ----------
 
         const float Crossfade = 0.4f;   // segundos
+        /// <summary>
+        /// Quanto de Sad Idle entra no Abatido (blend tree com o Breathing Idle): 0 = Breathing Idle,
+        /// 1 = Sad Idle puro (ombros caídos demais, corcunda). Ajuste aqui.
+        /// </summary>
+        const float PesoTristeza = 0.3f;
         Animator anim;
         bool usaAnimator;
         EstadoVisual humor = EstadoVisual.Normal;
@@ -211,6 +216,8 @@ namespace JogoDaVida.Cena
                 anim.applyRootMotion = false;
                 anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
                 anim.Rebind();
+                foreach (var par in anim.parameters)
+                    if (par.name == "Tristeza") anim.SetFloat("Tristeza", PesoTristeza);
                 anim.Play("Normal", 0, 0f);
                 anim.Update(0f);
                 AplicarRosto(0f, true);
@@ -366,6 +373,23 @@ namespace JogoDaVida.Cena
             }
         }
 
+        float abatimento;   // 0 a 1, suavizado
+
+        /// <summary>
+        /// Abatido: por cima do blend tree (que já tira a corcunda do Sad Idle), cabeça um pouco
+        /// baixa e ombros levemente caídos. Some ao comemorar.
+        /// </summary>
+        void Abater(float dt)
+        {
+            float alvoAbat = humor == EstadoVisual.Abatido && acao == null ? 1f : 0f;
+            abatimento = Mathf.Lerp(abatimento, alvoAbat, 1f - Mathf.Exp(-dt * 4.6f / TempoDeTransicao));
+            if (abatimento < 0.001f) return;
+            Girar(pescoco, Vector3.right, 8f * abatimento);
+            Girar(cabecaOsso, Vector3.right, 12f * abatimento);
+            foreach (var l in new[] { esq, dir })
+                Girar(l.ombro, Vector3.forward, -l.s * 5f * abatimento);
+        }
+
         // ---------- Animação por código ----------
 
         void LateUpdate()
@@ -380,6 +404,7 @@ namespace JogoDaVida.Cena
                     if (l.palpebraBaixo != null) l.palpebraBaixo.localRotation = Descanso(l.palpebraBaixo);
                 }
                 AplicarRosto(Time.deltaTime);
+                Abater(Time.deltaTime);
                 Piscar(Time.time);
                 return;
             }
