@@ -7,7 +7,8 @@ namespace JogoDaVida.Cena
     /// <summary>
     /// Boneco provisório feito de primitivas (cápsula + esfera), só para o ciclo
     /// de tarefas ter um rosto até o personagem 3D do passo 3 chegar.
-    /// Cria a própria câmera, luz e chão; ocupa a parte de cima da tela.
+    /// Fica dentro do <see cref="CenaDoQuarto"/>, que cuida de câmera, luz e móveis;
+    /// a cena ocupa a parte de cima da tela.
     /// </summary>
     public class BonecoProvisorio : MonoBehaviour
     {
@@ -16,6 +17,7 @@ namespace JogoDaVida.Cena
 
         Transform corpo, cabeca, bocaPivo;
         Renderer corpoRender;
+        CenaDoQuarto quarto;
         EstadoVisual estado = EstadoVisual.Normal;
         float tempoPulo = -10f, tempoGiro = -10f;
         Vector3 posBase;
@@ -31,26 +33,8 @@ namespace JogoDaVida.Cena
 
         void Montar()
         {
-            // Câmera só na faixa de cima
-            var cam = new GameObject("Câmera").AddComponent<Camera>();
-            cam.transform.SetParent(transform);
-            cam.transform.position = new Vector3(0, 1.1f, -4.2f);
-            cam.transform.LookAt(new Vector3(0, 0.9f, 0));
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.83f, 0.89f, 0.97f);
-            cam.rect = new Rect(0, 1 - AlturaDaCena, 1, AlturaDaCena);
-            cam.fieldOfView = 35;
-
-            var luz = new GameObject("Luz").AddComponent<Light>();
-            luz.transform.SetParent(transform);
-            luz.type = LightType.Directional;
-            luz.transform.rotation = Quaternion.Euler(40, -30, 0);
-            luz.intensity = 1.1f;
-
-            var chao = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            chao.transform.SetParent(transform);
-            chao.transform.localScale = Vector3.one * 0.6f;
-            Pintar(chao, new Color(0.72f, 0.62f, 0.5f));
+            // Câmera, luz, paredes e móveis ficam por conta do quarto.
+            quarto = CenaDoQuarto.Criar(transform);
 
             // Corpo
             var c = GameObject.CreatePrimitive(PrimitiveType.Capsule);
@@ -111,6 +95,7 @@ namespace JogoDaVida.Cena
                 _ => new Color(0.5f, 0.5f, 0.55f),
             };
             Pintar(corpoRender.gameObject, cor);
+            quarto.DefinirEstado(novo);
         }
 
         public void Comemorar() => tempoPulo = Time.time;
