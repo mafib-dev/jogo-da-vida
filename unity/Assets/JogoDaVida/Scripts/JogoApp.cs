@@ -270,13 +270,17 @@ namespace JogoDaVida
             var linhaBarras = new VisualElement();
             linhaBarras.style.flexDirection = FlexDirection.Row;
             linhaBarras.style.marginTop = 6;
-            var (blocoAgua, preencheAgua, textoAgua) = MiniBarra("Água", new Color(0.25f, 0.6f, 0.95f), () => EscolherAgua());
-            var (blocoMov, preencheMov, textoMov) = MiniBarra("Movimento", new Color(0.95f, 0.55f, 0.2f), () => EscolherMovimento());
+            // Declaradas antes porque as ações das barras capturam Desenhar(), que usa estas variáveis.
+            VisualElement blocoAgua, blocoMov, preencheAgua = null, preencheMov = null;
+            Label textoAgua = null, textoMov = null;
+            ScrollView lista = null;
+            (blocoAgua, preencheAgua, textoAgua) = MiniBarra("Água", new Color(0.25f, 0.6f, 0.95f), () => EscolherAgua());
+            (blocoMov, preencheMov, textoMov) = MiniBarra("Movimento", new Color(0.95f, 0.55f, 0.2f), () => EscolherMovimento());
             blocoAgua.style.marginRight = 12;
             linhaBarras.Add(blocoAgua); linhaBarras.Add(blocoMov);
             t.Add(linhaBarras);
 
-            var lista = Estilo.Rolagem();
+            lista = Estilo.Rolagem();
             t.Add(lista);
 
             var rodape = new VisualElement();

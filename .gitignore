@@ -16,3 +16,4 @@ unity/*.csproj
 unity/*.sln
 
 unity-import.log
+unity-import-*.log
