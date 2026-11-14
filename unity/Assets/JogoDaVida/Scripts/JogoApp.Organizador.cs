@@ -83,7 +83,7 @@ namespace JogoDaVida
                         ev.Feito ? Estilo.TextoSuave : Estilo.Texto);
                     c.Add(l);
                 }
-                c.RegisterCallback<ClickEvent>(_ => _ = MostrarAgenda());
+                c.RegisterCallback<ClickEvent>(evt => _ = MostrarAgenda());
                 lista.Add(c);
             }
             if (compras.Length > 0)
