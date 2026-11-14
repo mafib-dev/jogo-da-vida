@@ -76,20 +76,7 @@ namespace JogoDaVida.Cena
             DefinirEstado(EstadoVisual.Normal);
         }
 
-        static Material materialBase;
-
-        static void Pintar(GameObject go, Color cor)
-        {
-            var r = go.GetComponent<Renderer>();
-            // O material padrão das primitivas não entra no build (a cena é vazia) e fica magenta
-            // no celular. Usa um material de Resources, que garante o shader no APK.
-            if (materialBase == null) materialBase = Resources.Load<Material>("BonecoMaterial");
-            if (materialBase != null && r.sharedMaterial != null && r.sharedMaterial.shader != materialBase.shader)
-                r.sharedMaterial = materialBase;
-            // Funciona tanto no pipeline padrão quanto no URP.
-            r.material.color = cor;
-            if (r.material.HasProperty("_BaseColor")) r.material.SetColor("_BaseColor", cor);
-        }
+        static void Pintar(GameObject go, Color cor) => CenaDoQuarto.Pintar(go.GetComponent<Renderer>(), cor);
 
         public void DefinirEstado(EstadoVisual novo)
         {
