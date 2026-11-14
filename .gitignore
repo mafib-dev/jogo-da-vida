@@ -17,3 +17,5 @@ unity/*.sln
 
 unity-import.log
 unity-import-*.log
+Builds/
+unity/.utmp/

@@ -4,6 +4,9 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/JogoDaVida/Cenas/Principal.unity
+    guid: 98c7334b0a838e449ab5476c534a17fe
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0
