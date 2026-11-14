@@ -1,0 +1,16 @@
+.DS_Store
+.env
+.env.*
+supabase/.temp/
+supabase/.branches/
+
+# Unity
+unity/[Ll]ibrary/
+unity/[Tt]emp/
+unity/[Oo]bj/
+unity/[Bb]uild/
+unity/[Bb]uilds/
+unity/[Ll]ogs/
+unity/[Uu]serSettings/
+unity/*.csproj
+unity/*.sln
