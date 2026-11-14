@@ -36,7 +36,13 @@ Tudo é montado em código: não precisa arrastar nada no editor.
 | `Scripts/JogoApp.cs` | Telas: login, perfil, principal, nova tarefa, detalhe, avisos |
 | `Scripts/UI/Estilo.cs` | Cores, botões e campos |
 | `Scripts/Cena/CenaDoQuarto.cs` | Quarto 3D: paredes, móveis, câmera e luz (hora do dia e humor) |
-| `Scripts/Cena/BonecoProvisorio.cs` | Boneco provisório (será trocado no passo 3) |
+| `Scripts/Cena/BonecoProvisorio.cs` | Ponte da cena 3D usada pelo JogoApp: carrega o personagem humano; se falhar, mostra o boneco de cápsula |
+| `Scripts/Cena/PersonagemHumano.cs` | Personagem humano: pose relaxada, respiração, olhar, piscadas, 4 humores (postura + rosto) e pulos de comemoração, tudo por código nos ossos (ainda sem clipes do Mixamo) |
+| `Resources/PersonagemHumano.prefab` | Prefab do personagem carregado em tempo de execução (referencia os materiais, então eles entram no APK) |
+| `Arte/Personagem/` | Personagem.fbx (rig mixamo, blend shapes Rosto_Sorriso e Rosto_OlhosCansados), texturas e materiais |
+| `Editor/ImportarPersonagem.cs` | Configuração de importação do FBX, texturas e materiais do personagem |
+| `Editor/GerarPrefabDoPersonagem.cs` | Menu Jogo da Vida → Gerar prefab do personagem (rodar de novo após reexportar o FBX) |
+| `../arte/blender/gerar_personagem.py` | Script do Blender que gera o personagem e exporta o FBX e as texturas |
 
 O humor do personagem segue a barra mais baixa entre Hidratação e Movimento
 (70-100%: bem; 40-70%: normal; 15-40%: sinais; abaixo de 15%: abatido). As barras descem com o tempo,

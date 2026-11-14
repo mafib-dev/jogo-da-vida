@@ -5,8 +5,9 @@ namespace JogoDaVida.Cena
     public enum EstadoVisual { Bem, Normal, Sinais, Abatido }
 
     /// <summary>
-    /// Boneco provisório feito de primitivas (cápsula + esfera), só para o ciclo
-    /// de tarefas ter um rosto até o personagem 3D do passo 3 chegar.
+    /// Personagem da cena 3D (o nome ficou da primeira versão). Usa o
+    /// <see cref="PersonagemHumano"/> quando o prefab dele está em Resources; se não
+    /// estiver (ou o rig não bater), cai no boneco de primitivas (cápsula + esfera).
     /// Fica dentro do <see cref="CenaDoQuarto"/>, que cuida de câmera, luz e móveis;
     /// a cena ocupa a parte de cima da tela.
     /// </summary>
@@ -18,6 +19,7 @@ namespace JogoDaVida.Cena
         Transform corpo, cabeca, bocaPivo;
         Renderer corpoRender;
         CenaDoQuarto quarto;
+        PersonagemHumano humano;
         EstadoVisual estado = EstadoVisual.Normal;
         float tempoPulo = -10f, tempoGiro = -10f;
         Vector3 posBase;
@@ -36,6 +38,18 @@ namespace JogoDaVida.Cena
             // Câmera, luz, paredes e móveis ficam por conta do quarto.
             quarto = CenaDoQuarto.Criar(transform);
 
+            humano = PersonagemHumano.Criar(transform);
+            if (humano != null)
+            {
+                DefinirEstado(EstadoVisual.Normal);
+                return;
+            }
+            MontarCapsula();
+        }
+
+        /// <summary>Reserva: boneco de primitivas, se o personagem humano não carregar.</summary>
+        void MontarCapsula()
+        {
             // Corpo
             var c = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             c.name = "Corpo";
@@ -81,6 +95,12 @@ namespace JogoDaVida.Cena
         public void DefinirEstado(EstadoVisual novo)
         {
             estado = novo;
+            quarto.DefinirEstado(novo);
+            if (humano != null)
+            {
+                humano.DefinirEstado(novo);
+                return;
+            }
             Color cor = novo switch
             {
                 EstadoVisual.Bem => new Color(0.25f, 0.65f, 0.4f),
@@ -89,14 +109,23 @@ namespace JogoDaVida.Cena
                 _ => new Color(0.5f, 0.5f, 0.55f),
             };
             Pintar(corpoRender.gameObject, cor);
-            quarto.DefinirEstado(novo);
         }
 
-        public void Comemorar() => tempoPulo = Time.time;
-        public void SubiuDeNivel() { tempoPulo = Time.time; tempoGiro = Time.time; }
+        public void Comemorar()
+        {
+            if (humano != null) humano.Comemorar();
+            tempoPulo = Time.time;
+        }
+
+        public void SubiuDeNivel()
+        {
+            if (humano != null) humano.SubiuDeNivel();
+            tempoPulo = Time.time; tempoGiro = Time.time;
+        }
 
         void Update()
         {
+            if (humano != null) return;   // o personagem humano se anima sozinho
             float t = Time.time;
             // Respiração (idle). Mais lenta e curvada quando abatido.
             float ritmo = estado == EstadoVisual.Abatido ? 1.2f : 2.2f;
