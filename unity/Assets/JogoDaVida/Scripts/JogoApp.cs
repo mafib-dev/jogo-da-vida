@@ -295,13 +295,15 @@ namespace JogoDaVida
             linhaBarras.style.flexDirection = FlexDirection.Row;
             linhaBarras.style.marginTop = 6;
             // Declaradas antes porque as ações das barras capturam Desenhar(), que usa estas variáveis.
-            VisualElement blocoAgua, blocoMov, preencheAgua = null, preencheMov = null;
-            Label textoAgua = null, textoMov = null;
+            VisualElement blocoAgua, blocoMov, blocoEnergia, preencheAgua = null, preencheMov = null, preencheEnergia = null;
+            Label textoAgua = null, textoMov = null, textoEnergia = null;
             ScrollView lista = null;
             (blocoAgua, preencheAgua, textoAgua) = MiniBarra("Água", new Color(0.25f, 0.6f, 0.95f), () => EscolherAgua());
             (blocoMov, preencheMov, textoMov) = MiniBarra("Movimento", new Color(0.95f, 0.55f, 0.2f), () => EscolherMovimento());
+            (blocoEnergia, preencheEnergia, textoEnergia) = MiniBarra("Energia", new Color(0.55f, 0.4f, 0.85f), () => EscolherSono());
             blocoAgua.style.marginRight = 12;
-            linhaBarras.Add(blocoAgua); linhaBarras.Add(blocoMov);
+            blocoMov.style.marginRight = 12;
+            linhaBarras.Add(blocoAgua); linhaBarras.Add(blocoMov); linhaBarras.Add(blocoEnergia);
             t.Add(linhaBarras);
 
             lista = Estilo.Rolagem();
@@ -338,13 +340,18 @@ namespace JogoDaVida
                     textoAgua.text = $"Água {barras.hidratacao}%";
                     preencheMov.style.width = Length.Percent(barras.movimento);
                     textoMov.text = $"Movimento {barras.movimento}%";
+                    preencheEnergia.style.width = Length.Percent(barras.energia);
+                    textoEnergia.text = barras.dormindo_agora ? "Dormindo" : $"Energia {barras.energia}%";
                 }
 
                 lista.Clear();
                 var sugestao = CartaoSugestao();
                 if (sugestao != null) lista.Add(sugestao);
                 var hoje = HojeBrasilia();
-                var ordenadas = tarefas.OrderBy(x => x.FeitaNoPeriodo(hoje)).ThenBy(x => x.recorrencia == "avulsa" ? 1 : 0).ToArray();
+                // Pendentes de hoje primeiro (atrasadas no topo), depois folgas, depois as já feitas.
+                var ordenadas = tarefas.OrderBy(x => x.FeitaNoPeriodo(hoje) ? 2 : x.MarcadaPara(hoje) ? 0 : 1)
+                    .ThenByDescending(x => x.DiasAtraso(hoje))
+                    .ThenBy(x => x.recorrencia == "avulsa" ? 1 : 0).ToArray();
                 if (ordenadas.Length == 0)
                 {
                     lista.Add(Estilo.Texto_("Nenhuma tarefa ainda. Toque em \"+ Nova tarefa\" e escolha uma do catálogo, como lavar a louça ou tirar o lixo.", 32, false, Estilo.TextoSuave));
@@ -412,6 +419,32 @@ namespace JogoDaVida
                 });
             }
 
+            void EscolherSono()
+            {
+                bool dormindo = barras != null && barras.dormindo_agora;
+                Escolher(dormindo ? "Bom dia!" : "Sono", dormindo
+                    ? new[] { ("Acordei", (Action)(() => _ = Sono("acordar"))) }
+                    : new[] { ("Vou dormir", (Action)(() => _ = Sono("dormir"))), ("Acordei", (Action)(() => _ = Sono("acordar"))) });
+            }
+
+            async Task Sono(string acao)
+            {
+                if (ocupado) return;
+                ocupado = true;
+                try
+                {
+                    var r = await api.RegistrarSono(acao);
+                    string extra = r.pontos > 0 ? $"  ·  +{r.pontos} pontos" : "";
+                    string texto = acao == "dormir" ? "Boa noite! As barras não descem enquanto você dorme."
+                        : r.horas > 0 ? $"Você dormiu {r.horas:0.0} h. Energia: {r.energia}%" : $"Bom dia! Energia: {r.energia}%";
+                    Aviso(texto + extra, Estilo.Sucesso);
+                    await Recarregar();
+                    if (r.subiu_de_nivel) MostrarSubiuDeNivel(r.nivel);
+                }
+                catch (Exception e) { Aviso(e.Message, Estilo.Perigo); }
+                finally { ocupado = false; }
+            }
+
             async Task Registrar(string tipo, int quantidade, string intensidade)
             {
                 if (ocupado) return;
@@ -459,9 +492,16 @@ namespace JogoDaVida
                 info.style.flexGrow = 1;
                 info.style.flexShrink = 1;
                 info.Add(Estilo.Texto_(tarefa.titulo, 36, true));
-                string rec = tarefa.recorrencia == "diaria" ? "diária" : tarefa.recorrencia == "semanal" ? "semanal" : "avulsa";
                 string streak = tarefa.streak_atual > 1 ? $" · sequência {tarefa.streak_atual}" : "";
-                info.Add(Estilo.Texto_($"{tarefa.pontos} pontos · {tarefa.minutos} min · {rec}{streak}", 28, false, Estilo.TextoSuave));
+                info.Add(Estilo.Texto_($"{tarefa.pontos} pontos · {tarefa.minutos} min · {tarefa.TextoRecorrencia()}{streak}", 28, false, Estilo.TextoSuave));
+                int atraso = tarefa.DiasAtraso(hoje);
+                if (atraso > 0)
+                    info.Add(Estilo.Texto_(atraso == 1 ? "atrasada há 1 dia" : $"atrasada há {atraso} dias", 28, true, Estilo.Perigo));
+                else if (!feita && !tarefa.MarcadaPara(hoje))
+                {
+                    info.Add(Estilo.Texto_("folga hoje (se fizer, vale os pontos)", 28, false, Estilo.TextoSuave));
+                    c.style.opacity = 0.8f;
+                }
                 info.RegisterCallback<ClickEvent>(_ => MostrarDetalhe(tarefa));
                 c.Add(info);
 
@@ -664,13 +704,19 @@ namespace JogoDaVida
             }
             var esc1 = Estilo.Escolha("Intensidade", new[] { ("leve", "Leve"), ("moderada", "Moderada"), ("pesada", "Pesada") },
                 intensidade, v => intensidade = v);
-            var esc2 = Estilo.Escolha("Repete?", new[] { ("avulsa", "Só uma vez"), ("diaria", "Todo dia"), ("semanal", "Toda semana") },
-                recorrencia, v => recorrencia = v);
+            var dias = new System.Collections.Generic.HashSet<int>();
+            var escDias = EscolhaDias(dias);
+            var esc2 = Estilo.Escolha("Repete?", new[] { ("avulsa", "Só uma vez"), ("diaria", "Diária"), ("semanal", "Toda semana") },
+                recorrencia, v =>
+                {
+                    recorrencia = v;
+                    escDias.style.display = v == "diaria" ? DisplayStyle.Flex : DisplayStyle.None;
+                });
             var descricao = Estilo.Campo("Detalhes (opcional)", "", true);
             if (!string.IsNullOrEmpty(modelo?.descricao)) descricao.value = modelo.descricao;
             var contexto = Estilo.Campo("Algo fora do comum? (opcional)", "Ex.: o banheiro estava muito sujo", true);
             var msg = Estilo.Texto_("", 30, false, Estilo.Perigo);
-            foreach (var e in new VisualElement[] { titulo, minutos, esc1, esc2, descricao, contexto, msg }) rolagem.Add(e);
+            foreach (var e in new VisualElement[] { titulo, minutos, esc1, esc2, escDias, descricao, contexto, msg }) rolagem.Add(e);
 
             async Task Salvar()
             {
@@ -691,6 +737,7 @@ namespace JogoDaVida
                         minutos = min,
                         intensidade = intensidade,
                         recorrencia = recorrencia,
+                        dias = recorrencia == "diaria" ? dias.OrderBy(d => d).ToArray() : new int[0],
                         descricao = descricao.value.Trim(),
                         contexto = contexto.value.Trim(),
                     });
@@ -707,6 +754,46 @@ namespace JogoDaVida
 
             rolagem.Add(Estilo.Botao("Calcular pontos", () => _ = Salvar()));
             rolagem.Add(Estilo.Botao("Voltar ao catálogo", () => _ = MostrarCatalogo(), Estilo.TextoSuave, true));
+        }
+
+        /// <summary>Sete botões (dom a sáb) que ligam e desligam. Nenhum marcado = todo dia.</summary>
+        static VisualElement EscolhaDias(System.Collections.Generic.HashSet<int> marcados)
+        {
+            var bloco = new VisualElement();
+            bloco.style.Margem(8, 0);
+            var rotulo = Estilo.Texto_("", 30, false, Estilo.TextoSuave);
+            bloco.Add(rotulo);
+            var linha = new VisualElement();
+            linha.style.flexDirection = FlexDirection.Row;
+            bloco.Add(linha);
+            string[] nomes = { "D", "S", "T", "Q", "Q", "S", "S" };
+            var botoes = new Button[7];
+            void Atualizar()
+            {
+                for (int i = 0; i < 7; i++)
+                {
+                    bool sel = marcados.Contains(i);
+                    botoes[i].style.backgroundColor = sel ? Estilo.Primaria : Color.white;
+                    botoes[i].style.color = sel ? Color.white : Estilo.Texto;
+                }
+                rotulo.text = $"Quais dias? ({Tarefa.TextoDias(marcados.ToArray())})";
+            }
+            for (int i = 0; i < 7; i++)
+            {
+                int dia = i;
+                var b = new Button(() => { if (!marcados.Remove(dia)) marcados.Add(dia); Atualizar(); }) { text = nomes[i] };
+                b.style.flexGrow = 1;
+                b.style.flexBasis = 0;
+                b.style.height = 88;
+                b.style.fontSize = 30;
+                b.style.Raio(14);
+                b.style.Margem(0, 4);
+                b.style.BordaCor(Estilo.Borda, 2);
+                botoes[i] = b;
+                linha.Add(b);
+            }
+            Atualizar();
+            return bloco;
         }
 
         // =============================================================== Catálogo de tarefas padrão
@@ -892,7 +979,7 @@ namespace JogoDaVida
             var cartao = Estilo.CaixaCartao();
             cartao.Add(Estilo.Texto_($"{tarefa.pontos} pontos", 64, true, Estilo.Primaria));
             string origem = tarefa.pontuada_por == "llm" ? $"fator pessoal ×{tarefa.fator_pessoal:0.00}" : "fórmula base";
-            cartao.Add(Estilo.Texto_($"{tarefa.minutos} min · {tarefa.intensidade} · {origem}", 28, false, Estilo.TextoSuave));
+            cartao.Add(Estilo.Texto_($"{tarefa.minutos} min · {tarefa.intensidade} · {tarefa.TextoRecorrencia()} · {origem}", 28, false, Estilo.TextoSuave));
             if (!string.IsNullOrEmpty(tarefa.justificativa))
                 cartao.Add(Estilo.Texto_(tarefa.justificativa, 32));
             if (tarefa.streak_recorde > 0)
@@ -913,7 +1000,7 @@ namespace JogoDaVida
                 msg.text = "Recalculando...";
                 try
                 {
-                    var nova = await api.PontuarTarefa(new NovaTarefa { tarefa_id = tarefa.id, contexto = contexto.value.Trim() });
+                    var nova = await api.PontuarTarefa(new NovaTarefa { tarefa_id = tarefa.id, contexto = contexto.value.Trim(), dias = tarefa.dias ?? new int[0] });
                     ocupado = false;
                     MostrarDetalhe(nova);
                 }
