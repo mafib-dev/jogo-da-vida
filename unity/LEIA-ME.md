@@ -38,5 +38,13 @@ Tudo é montado em código: não precisa arrastar nada no editor.
 | `Scripts/Cena/CenaDoQuarto.cs` | Quarto 3D: paredes, móveis, câmera e luz (hora do dia e humor) |
 | `Scripts/Cena/BonecoProvisorio.cs` | Boneco provisório (será trocado no passo 3) |
 
-O humor do boneco por enquanto depende de quantas tarefas você fez hoje
-(nenhuma: sinais de cansaço; 1 ou 2: normal; 3 ou mais: bem). No passo 3 ele passa a seguir as barras de Hidratação e Movimento.
+O humor do personagem segue a barra mais baixa entre Hidratação e Movimento
+(70-100%: bem; 40-70%: normal; 15-40%: sinais; abaixo de 15%: abatido). As barras descem com o tempo,
+mas não enquanto você dorme (horários do perfil; padrão 23:00 às 07:00).
+
+## Barras, loja e sugestões
+
+- **Barras:** toque no "+" de Água (copo, garrafinha, litro) ou de Movimento (alongar, caminhar, treinar). Cada registro dá 2 pontos (até 10 por barra por dia).
+- **Loja:** 10 itens (5 para o personagem, 5 para o quarto). Por enquanto a compra fica registrada; os itens aparecem no 3D quando os modelos existirem.
+- **Sugestões do dia:** um cartão no topo da lista em cada janela (8-11h, 12-14h, 15-18h, 19-22h), pela barra mais baixa. No Android também vira notificação (8:30, 12:30, 15:30, 19:30). Tocar na notificação abre o app; o botão "Feito!" fica no cartão, porque o pacote de notificações do Unity não tem botão de ação no Android.
+- As notificações usam o pacote **Mobile Notifications** (`com.unity.mobile.notifications`).

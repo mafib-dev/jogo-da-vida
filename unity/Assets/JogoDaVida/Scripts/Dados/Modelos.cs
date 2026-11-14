@@ -68,6 +68,54 @@ namespace JogoDaVida.Dados
     }
 
     [Serializable]
+    public class Barras
+    {
+        public int hidratacao;
+        public int movimento;
+        public bool dormindo;
+        // Preenchidos só ao registrar
+        public int pontos;
+        public int moedas_ganhas;
+        public int nivel;
+        public bool subiu_de_nivel;
+
+        /// <summary>A barra mais baixa decide o estado visual (Banco de Ideias 3.4).</summary>
+        public int Menor => Math.Min(hidratacao, movimento);
+    }
+
+    [Serializable]
+    public class Item
+    {
+        public string id;
+        public string nome;
+        public string categoria; // roupa | movel
+        public int preco;
+        public string descricao;
+        public int ordem;
+    }
+
+    [Serializable]
+    public class Compra
+    {
+        public string item_id;
+        public bool equipado;
+    }
+
+    [Serializable]
+    class RegistroBarra
+    {
+        public string p_tipo;
+        public int p_quantidade;
+        public string p_intensidade;
+    }
+
+    [Serializable]
+    class IdItem
+    {
+        public string p_item_id;
+    }
+
+    [Serializable]
     public class NovaTarefa
     {
         public string tarefa_id; // vazio = nova tarefa
