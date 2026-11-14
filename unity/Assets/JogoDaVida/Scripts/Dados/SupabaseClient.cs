@@ -132,6 +132,44 @@ namespace JogoDaVida.Dados
             return JsonUtility.FromJson<ResultadoSono>(json);
         }
 
+        // ------------------------------------------------- Plano alimentar
+
+        public Task<Refeicao[]> PlanoAlimentar() =>
+            GetLista<Refeicao>("/rest/v1/refeicoes?select=*&order=dia_semana.asc,horario.asc");
+
+        /// <summary>Marcações de hoje (data no fuso de Brasília, "2026-11-14").</summary>
+        public Task<RegistroRefeicao[]> RefeicoesDoDia(string data) =>
+            GetLista<RegistroRefeicao>("/rest/v1/refeicoes_registro?select=refeicao_id,status,o_que_comi,pontos&data=eq." + data + "&order=criado_em.asc");
+
+        /// <summary>Cria (id vazio) ou atualiza uma refeição do plano.</summary>
+        public Task SalvarRefeicao(Refeicao r)
+        {
+            var corpo = JsonUtility.ToJson(new EnvioRefeicao
+            {
+                dia_semana = r.dia_semana, horario = r.horario, nome = r.nome, tipo = r.tipo,
+                descricao = r.descricao, observacoes = r.observacoes,
+            });
+            return string.IsNullOrEmpty(r.id)
+                ? Autenticado("POST", "/rest/v1/refeicoes", corpo)
+                : Autenticado("PATCH", "/rest/v1/refeicoes?id=eq." + r.id, corpo);
+        }
+
+        public Task RemoverRefeicao(string id) =>
+            Autenticado("DELETE", "/rest/v1/refeicoes?id=eq." + id, null);
+
+        /// <summary>refeicaoId vazio = comeu algo fora do plano (oQueComi obrigatório).</summary>
+        public async Task<ResultadoRefeicao> RegistrarRefeicao(string refeicaoId, string status, string oQueComi = "")
+        {
+            var corpo = JsonUtility.ToJson(new EnvioRegistroRefeicao { p_refeicao_id = refeicaoId ?? "", p_status = status, p_o_que_comi = oQueComi ?? "" });
+            // O JsonUtility escreve string nula como "", mas o banco espera null para "fora do plano".
+            if (string.IsNullOrEmpty(refeicaoId)) corpo = corpo.Replace("\"p_refeicao_id\":\"\"", "\"p_refeicao_id\":null");
+            var json = await Autenticado("POST", "/rest/v1/rpc/registrar_refeicao", corpo);
+            return JsonUtility.FromJson<ResultadoRefeicao>(json);
+        }
+
+        public Task SalvarMetaAgua(int ml) =>
+            Autenticado("PATCH", "/rest/v1/perfil?user_id=eq." + Sessao.user.id, JsonUtility.ToJson(new MetaAgua { meta_agua_ml = ml }));
+
         /// <summary>tipo: "hidratacao" (quantidade em ml) ou "movimento" (quantidade em minutos).</summary>
         public async Task<Barras> RegistrarBarra(string tipo, int quantidade, string intensidade = "moderada")
         {

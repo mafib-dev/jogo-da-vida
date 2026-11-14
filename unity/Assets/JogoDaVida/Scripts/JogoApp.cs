@@ -13,7 +13,7 @@ namespace JogoDaVida
     /// Ponto de entrada do app. Sobe sozinho ao dar Play em qualquer cena
     /// (não precisa arrastar nada no editor) e monta cena 3D + interface em código.
     /// </summary>
-    public class JogoApp : MonoBehaviour
+    public partial class JogoApp : MonoBehaviour
     {
         const string ChavePerfilPulado = "jdv.perfil_pulado";
 
@@ -290,21 +290,27 @@ namespace JogoDaVida
             var xp = Estilo.Texto_("", 28, false, Estilo.TextoSuave);
             t.Add(xp);
 
-            // Barras do Tamagotchi
+            // Barras do Tamagotchi (duas linhas de duas)
             var linhaBarras = new VisualElement();
             linhaBarras.style.flexDirection = FlexDirection.Row;
             linhaBarras.style.marginTop = 6;
+            var linhaBarras2 = new VisualElement();
+            linhaBarras2.style.flexDirection = FlexDirection.Row;
+            linhaBarras2.style.marginTop = 6;
             // Declaradas antes porque as ações das barras capturam Desenhar(), que usa estas variáveis.
-            VisualElement blocoAgua, blocoMov, blocoEnergia, preencheAgua = null, preencheMov = null, preencheEnergia = null;
-            Label textoAgua = null, textoMov = null, textoEnergia = null;
+            VisualElement blocoAgua, blocoMov, blocoEnergia, blocoAlim, preencheAgua = null, preencheMov = null, preencheEnergia = null, preencheAlim = null;
+            Label textoAgua = null, textoMov = null, textoEnergia = null, textoAlim = null;
             ScrollView lista = null;
             (blocoAgua, preencheAgua, textoAgua) = MiniBarra("Água", new Color(0.25f, 0.6f, 0.95f), () => EscolherAgua());
             (blocoMov, preencheMov, textoMov) = MiniBarra("Movimento", new Color(0.95f, 0.55f, 0.2f), () => EscolherMovimento());
             (blocoEnergia, preencheEnergia, textoEnergia) = MiniBarra("Energia", new Color(0.55f, 0.4f, 0.85f), () => EscolherSono());
+            (blocoAlim, preencheAlim, textoAlim) = MiniBarra("Alimentação", new Color(0.3f, 0.7f, 0.35f), () => _ = MostrarRefeicoes());
             blocoAgua.style.marginRight = 12;
-            blocoMov.style.marginRight = 12;
-            linhaBarras.Add(blocoAgua); linhaBarras.Add(blocoMov); linhaBarras.Add(blocoEnergia);
+            blocoEnergia.style.marginRight = 12;
+            linhaBarras.Add(blocoAgua); linhaBarras.Add(blocoMov);
+            linhaBarras2.Add(blocoEnergia); linhaBarras2.Add(blocoAlim);
             t.Add(linhaBarras);
+            t.Add(linhaBarras2);
 
             lista = Estilo.Rolagem();
             t.Add(lista);
@@ -337,7 +343,11 @@ namespace JogoDaVida
                 if (barras != null)
                 {
                     preencheAgua.style.width = Length.Percent(barras.hidratacao);
-                    textoAgua.text = $"Água {barras.hidratacao}%";
+                    textoAgua.text = barras.meta_agua_ml > 0
+                        ? $"Água {barras.agua_hoje_ml / 1000f:0.0}/{barras.meta_agua_ml / 1000f:0.#} L"
+                        : $"Água {barras.hidratacao}%";
+                    preencheAlim.style.width = Length.Percent(barras.alimentacao);
+                    textoAlim.text = $"Alimentação {barras.alimentacao}%";
                     preencheMov.style.width = Length.Percent(barras.movimento);
                     textoMov.text = $"Movimento {barras.movimento}%";
                     preencheEnergia.style.width = Length.Percent(barras.energia);
@@ -347,6 +357,8 @@ namespace JogoDaVida
                 lista.Clear();
                 var sugestao = CartaoSugestao();
                 if (sugestao != null) lista.Add(sugestao);
+                var refeicao = CartaoProximaRefeicao();
+                if (refeicao != null) lista.Add(refeicao);
                 var hoje = HojeBrasilia();
                 // Pendentes de hoje primeiro (atrasadas no topo), depois folgas, depois as já feitas.
                 var ordenadas = tarefas.OrderBy(x => x.FeitaNoPeriodo(hoje) ? 2 : x.MarcadaPara(hoje) ? 0 : 1)
@@ -538,10 +550,12 @@ namespace JogoDaVida
                 var s = api.Status();
                 var l = api.TarefasAtivas();
                 var b = api.StatusBarras();
-                await Task.WhenAll(s, l, b);
+                var p = api.PlanoAlimentar();
+                await Task.WhenAll(s, l, b, p);
                 status = s.Result;
                 tarefas = l.Result;
                 barras = b.Result;
+                plano = p.Result;
                 Notificacoes.Agendar(barras);
                 Desenhar();
             }
