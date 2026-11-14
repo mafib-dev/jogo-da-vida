@@ -36,7 +36,7 @@ namespace JogoDaVida
             c.Add(Estilo.Texto_("Próxima refeição", 26, true, Estilo.TextoSuave));
             c.Add(Estilo.Texto_($"{proxima.Hora} · {proxima.nome}", 34, true));
             if (!string.IsNullOrEmpty(proxima.descricao)) c.Add(Estilo.Texto_(proxima.descricao, 28, false, Estilo.TextoSuave));
-            c.RegisterCallback<ClickEvent>(_ => _ = MostrarRefeicoes());
+            c.RegisterCallback<ClickEvent>(evt => _ = MostrarRefeicoes());
             return c;
         }
 
