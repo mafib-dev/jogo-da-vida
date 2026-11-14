@@ -36,6 +36,9 @@ namespace JogoDaVida.EditorTools
                     r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
                     r.receiveShadows = true;
                 }
+                // Animações do Mixamo (se já foram extraídas): o Animator usa o controller gerado.
+                ExtrairAnimacoesMixamo.LigarControlador(instancia,
+                    AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(ExtrairAnimacoesMixamo.Controlador));
                 PrefabUtility.SaveAsPrefabAsset(instancia, Prefab, out bool ok);
                 Debug.Log("[GerarPrefabDoPersonagem] " + (ok ? "prefab salvo em " : "falha ao salvar ") + Prefab);
             }

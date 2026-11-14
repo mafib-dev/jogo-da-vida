@@ -6,7 +6,14 @@ namespace JogoDaVida.Cena
 {
     /// <summary>
     /// Personagem humano (modelo do Blender, rig mixamo) dentro do quarto.
-    /// Ainda não há clipes de animação: a pose e todo o movimento são feitos por código,
+    ///
+    /// Com o AnimatorController no prefab (menu Jogo da Vida → Extrair animações do Mixamo), o corpo
+    /// é animado pelos clipes do Mixamo: um idle por humor, bocejos de tempos em tempos nos Sinais,
+    /// Victory ao comemorar e Joyful Jump ao subir de nível (os dois voltam ao idle do humor).
+    /// Por cima da animação, no LateUpdate, ficam as piscadas (ossos das pálpebras) e as
+    /// expressões (blend shapes de sorriso e olhos cansados).
+    ///
+    /// Sem o controller, cai na animação por código: a pose e todo o movimento são feitos
     /// girando os ossos no LateUpdate a partir da pose de repouso do FBX (pose A).
     ///
     /// As direções são dadas no espaço do próprio personagem (este objeto):
@@ -86,6 +93,31 @@ namespace JogoDaVida.Cena
         Quaternion rotacaoBase;
         bool pronto;
 
+        // ---------- Animator (clipes do Mixamo) ----------
+
+        const float Crossfade = 0.4f;   // segundos
+        /// <summary>
+        /// Quanto de Sad Idle entra no Abatido (blend tree com o Breathing Idle): 0 = Breathing Idle,
+        /// 1 = Sad Idle puro (ombros caídos demais, corcunda). Ajuste aqui.
+        /// </summary>
+        const float PesoTristeza = 0.3f;
+        Animator anim;
+        bool usaAnimator;
+        EstadoVisual humor = EstadoVisual.Normal;
+        float proximoBocejo = float.MaxValue;
+        float sorrisoAtual, cansadoAtual;
+        string acao;   // estado de uma só vez tocando agora (Comemorar, SubiuDeNivel, Bocejo) ou null
+
+        static readonly int[] Acoes = { Animator.StringToHash("Comemorar"), Animator.StringToHash("SubiuDeNivel"), Animator.StringToHash("Bocejo") };
+
+        static string IdleDe(EstadoVisual e) => e switch
+        {
+            EstadoVisual.Bem => "Bem",
+            EstadoVisual.Normal => "Normal",
+            EstadoVisual.Sinais => "Sinais",
+            _ => "Abatido",
+        };
+
         /// <summary>Usado só nas capturas de conferência: força as pálpebras fechadas (0 a 1); negativo = normal.</summary>
         [NonSerialized] public float forcarPiscada = -1f;
 
@@ -134,9 +166,13 @@ namespace JogoDaVida.Cena
             pescoco = Osso("Neck"); cabecaOsso = Osso("Head");
             esq = MontarLado("Left"); dir = MontarLado("Right");
 
-            // Sem clipes ainda: o Animator (avatar humanoid, pronto para o Mixamo) fica desligado.
-            var anim = m.GetComponentInChildren<Animator>();
-            if (anim != null) anim.enabled = false;
+            // Animator com os clipes do Mixamo, se o controller estiver no prefab; senão fica desligado
+            // e o corpo é animado por código.
+            anim = m.GetComponentInChildren<Animator>();
+            usaAnimator = anim != null && anim.runtimeAnimatorController != null
+                && anim.avatar != null && anim.avatar.isValid && anim.avatar.isHuman
+                && anim.HasState(0, Animator.StringToHash("Normal"));
+            if (anim != null && !usaAnimator) anim.enabled = false;
 
             // Vira o modelo para a frente deste objeto, medindo para onde os olhos apontam.
             Vector3 frente = ossos.TryGetValue("LeftEye", out var oe) && ossos.TryGetValue("RightEye", out var od)
@@ -175,7 +211,19 @@ namespace JogoDaVida.Cena
             atual = alvo = PosturaDe(EstadoVisual.Normal);
             posicaoBase = transform.localPosition;
             rotacaoBase = transform.localRotation;
-            Posar(0f);
+            if (usaAnimator)
+            {
+                anim.applyRootMotion = false;
+                anim.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+                anim.Rebind();
+                foreach (var par in anim.parameters)
+                    if (par.name == "Tristeza") anim.SetFloat("Tristeza", PesoTristeza);
+                anim.Play("Normal", 0, 0f);
+                anim.Update(0f);
+                AplicarRosto(0f, true);
+            }
+            else
+                Posar(0f);
             Aterrar();
             pronto = true;
         }
@@ -251,15 +299,115 @@ namespace JogoDaVida.Cena
 
         // ---------- API usada pelo BonecoProvisorio ----------
 
-        public void DefinirEstado(EstadoVisual estado) => alvo = PosturaDe(estado);
-        public void Comemorar() => tempoComemorar = Time.time;
-        public void SubiuDeNivel() => tempoNivel = Time.time;
+        public void DefinirEstado(EstadoVisual estado)
+        {
+            alvo = PosturaDe(estado);
+            if (!usaAnimator) return;
+            bool mudou = estado != humor;
+            humor = estado;
+            if (estado == EstadoVisual.Sinais)
+            {
+                if (mudou || proximoBocejo == float.MaxValue) proximoBocejo = Time.time + UnityEngine.Random.Range(8f, 15f);
+            }
+            else
+                proximoBocejo = float.MaxValue;
+            // Durante Victory / pulo a troca espera o fim; o bocejo é interrompido se o humor mudou.
+            if (mudou && (acao == null || acao == "Bocejo"))
+                Tocar(IdleDe(humor), Crossfade);
+        }
+
+        public void Comemorar()
+        {
+            tempoComemorar = Time.time;
+            if (usaAnimator && acao != "SubiuDeNivel") Tocar("Comemorar", 0.3f, true);
+        }
+
+        public void SubiuDeNivel()
+        {
+            tempoNivel = Time.time;
+            if (usaAnimator) Tocar("SubiuDeNivel", 0.3f, true);
+        }
+
+        // ---------- Animator ----------
+
+        void Tocar(string estado, float transicao, bool doInicio = false)
+        {
+            acao = estado == "Comemorar" || estado == "SubiuDeNivel" || estado == "Bocejo" ? estado : null;
+            if (doInicio) anim.CrossFadeInFixedTime(estado, transicao, 0, 0f);
+            else anim.CrossFadeInFixedTime(estado, transicao);
+        }
+
+        void Update()
+        {
+            if (!pronto || !usaAnimator) return;
+            if (acao != null)
+            {
+                // Fim da ação (Victory, pulo ou bocejo): volta ao idle do humor atual.
+                if (anim.IsInTransition(0)) return;
+                var info = anim.GetCurrentAnimatorStateInfo(0);
+                if (Array.IndexOf(Acoes, info.shortNameHash) < 0) return;   // crossfade ainda não começou
+                float fim = 1f - Crossfade / Mathf.Max(info.length, 0.5f);
+                if (info.normalizedTime < fim) return;
+                if (acao == "Bocejo") proximoBocejo = Time.time + UnityEngine.Random.Range(8f, 15f);
+                Tocar(IdleDe(humor), Crossfade);
+                return;
+            }
+            if (humor == EstadoVisual.Sinais && Time.time >= proximoBocejo && !anim.IsInTransition(0))
+                Tocar("Bocejo", Crossfade, true);
+        }
+
+        /// <summary>Sorriso e olhos cansados do humor; comemorando, sorriso aberto.</summary>
+        void AplicarRosto(float dt, bool imediato = false)
+        {
+            float sorriso = alvo.sorriso, cansado = alvo.cansado;
+            if (acao == "Comemorar" || acao == "SubiuDeNivel") { sorriso = 80f; cansado = 0f; }
+            else if (acao == "Bocejo") cansado = Mathf.Max(cansado, 80f);
+            float k = imediato ? 1f : 1f - Mathf.Exp(-dt * 4.6f / TempoDeTransicao);
+            sorrisoAtual = Mathf.Lerp(sorrisoAtual, sorriso, k);
+            cansadoAtual = Mathf.Lerp(cansadoAtual, cansado, k);
+            atual.cansado = cansadoAtual;   // a piscada fica mais lenta quando cansado
+            foreach (var (r, s, c) in rostos)
+            {
+                if (s >= 0) r.SetBlendShapeWeight(s, sorrisoAtual);
+                if (c >= 0) r.SetBlendShapeWeight(c, cansadoAtual);
+            }
+        }
+
+        float abatimento;   // 0 a 1, suavizado
+
+        /// <summary>
+        /// Abatido: por cima do blend tree (que já tira a corcunda do Sad Idle), cabeça um pouco
+        /// baixa e ombros levemente caídos. Some ao comemorar.
+        /// </summary>
+        void Abater(float dt)
+        {
+            float alvoAbat = humor == EstadoVisual.Abatido && acao == null ? 1f : 0f;
+            abatimento = Mathf.Lerp(abatimento, alvoAbat, 1f - Mathf.Exp(-dt * 4.6f / TempoDeTransicao));
+            if (abatimento < 0.001f) return;
+            Girar(pescoco, Vector3.right, 8f * abatimento);
+            Girar(cabecaOsso, Vector3.right, 12f * abatimento);
+            foreach (var l in new[] { esq, dir })
+                Girar(l.ombro, Vector3.forward, -l.s * 5f * abatimento);
+        }
 
         // ---------- Animação por código ----------
 
         void LateUpdate()
         {
             if (!pronto) return;
+            if (usaAnimator)
+            {
+                // O Animator não mexe nas pálpebras (não são ossos do Humanoid): parte do repouso e pisca.
+                foreach (var l in new[] { esq, dir })
+                {
+                    if (l.palpebraCima != null) l.palpebraCima.localRotation = Descanso(l.palpebraCima);
+                    if (l.palpebraBaixo != null) l.palpebraBaixo.localRotation = Descanso(l.palpebraBaixo);
+                }
+                AplicarRosto(Time.deltaTime);
+                Abater(Time.deltaTime);
+                Piscar(Time.time);
+                return;
+            }
             float dt = Time.deltaTime;
             atual = Postura.Lerp(atual, alvo, 1f - Mathf.Exp(-dt * 4.6f / TempoDeTransicao));   // ~99% em 0,5 s
             faseResp += dt * Mathf.PI * 2f * 0.24f * atual.ritmo;
@@ -378,6 +526,12 @@ namespace JogoDaVida.Cena
                 if (l.palpebraCima != null) Girar(l.palpebraCima, Vector3.right, fechar * 28f);
                 if (l.palpebraBaixo != null) Girar(l.palpebraBaixo, Vector3.right, -fechar * 8f);
             }
+        }
+
+        Quaternion Descanso(Transform osso)
+        {
+            foreach (var (o, r) in descanso) if (o == osso) return r;
+            return osso.localRotation;
         }
 
         /// <summary>Gira o osso em volta de um eixo do personagem (em graus).</summary>
