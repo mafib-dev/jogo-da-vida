@@ -35,6 +35,7 @@ Tudo é montado em código: não precisa arrastar nada no editor.
 | `Scripts/Dados/Modelos.cs` | Formato dos dados |
 | `Scripts/JogoApp.cs` | Telas: login, perfil, principal, nova tarefa, detalhe, avisos |
 | `Scripts/UI/Estilo.cs` | Cores, botões e campos |
+| `Scripts/Cena/CenaDoQuarto.cs` | Quarto 3D: paredes, móveis, câmera e luz (hora do dia e humor) |
 | `Scripts/Cena/BonecoProvisorio.cs` | Boneco provisório (será trocado no passo 3) |
 
 O humor do personagem segue a barra mais baixa entre Hidratação e Movimento
