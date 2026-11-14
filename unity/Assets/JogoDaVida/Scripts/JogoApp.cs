@@ -22,6 +22,7 @@ namespace JogoDaVida
         VisualElement raiz, conteudo, sobreposicao;
         StatusJogador status;
         Tarefa[] tarefas = new Tarefa[0];
+        Barras barras;
         bool ocupado;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -265,6 +266,16 @@ namespace JogoDaVida
             var xp = Estilo.Texto_("", 28, false, Estilo.TextoSuave);
             t.Add(xp);
 
+            // Barras do Tamagotchi
+            var linhaBarras = new VisualElement();
+            linhaBarras.style.flexDirection = FlexDirection.Row;
+            linhaBarras.style.marginTop = 6;
+            var (blocoAgua, preencheAgua, textoAgua) = MiniBarra("Água", new Color(0.25f, 0.6f, 0.95f), () => EscolherAgua());
+            var (blocoMov, preencheMov, textoMov) = MiniBarra("Movimento", new Color(0.95f, 0.55f, 0.2f), () => EscolherMovimento());
+            blocoAgua.style.marginRight = 12;
+            linhaBarras.Add(blocoAgua); linhaBarras.Add(blocoMov);
+            t.Add(linhaBarras);
+
             var lista = Estilo.Rolagem();
             t.Add(lista);
 
@@ -272,10 +283,13 @@ namespace JogoDaVida
             rodape.style.flexDirection = FlexDirection.Row;
             var nova = Estilo.Botao("+ Nova tarefa", MostrarNovaTarefa);
             nova.style.flexGrow = 1;
+            var loja = Estilo.Botao("Loja", () => _ = MostrarLoja(), Estilo.Moeda);
+            loja.style.width = 180;
+            loja.style.marginLeft = 16;
             var sair = Estilo.Botao("Sair", () => { api.Sair(); MostrarLogin(); }, Estilo.TextoSuave, true);
-            sair.style.width = 180;
+            sair.style.width = 150;
             sair.style.marginLeft = 16;
-            rodape.Add(nova); rodape.Add(sair);
+            rodape.Add(nova); rodape.Add(loja); rodape.Add(sair);
             t.Add(rodape);
 
             void Desenhar()
@@ -289,7 +303,17 @@ namespace JogoDaVida
                     xp.text = $"{status.xp_no_nivel} / {status.xp_proximo_nivel} XP para o nível {status.nivel + 1}";
                 }
 
+                if (barras != null)
+                {
+                    preencheAgua.style.width = Length.Percent(barras.hidratacao);
+                    textoAgua.text = $"Água {barras.hidratacao}%";
+                    preencheMov.style.width = Length.Percent(barras.movimento);
+                    textoMov.text = $"Movimento {barras.movimento}%";
+                }
+
                 lista.Clear();
+                var sugestao = CartaoSugestao();
+                if (sugestao != null) lista.Add(sugestao);
                 var hoje = HojeBrasilia();
                 var ordenadas = tarefas.OrderBy(x => x.FeitaNoPeriodo(hoje)).ThenBy(x => x.recorrencia == "avulsa" ? 1 : 0).ToArray();
                 if (ordenadas.Length == 0)
@@ -298,8 +322,100 @@ namespace JogoDaVida
                 }
                 foreach (var tarefa in ordenadas) lista.Add(CartaoTarefa(tarefa, hoje));
 
-                int feitasHoje = tarefas.Count(x => x.ultima_conclusao == hoje.ToString("yyyy-MM-dd"));
-                boneco.DefinirEstado(feitasHoje >= 3 ? EstadoVisual.Bem : feitasHoje >= 1 ? EstadoVisual.Normal : EstadoVisual.Sinais);
+                if (barras != null)
+                {
+                    int m = barras.Menor;
+                    boneco.DefinirEstado(m >= 70 ? EstadoVisual.Bem : m >= 40 ? EstadoVisual.Normal : m >= 15 ? EstadoVisual.Sinais : EstadoVisual.Abatido);
+                }
+            }
+
+            (VisualElement, VisualElement, Label) MiniBarra(string nome, Color cor, Action aoTocar)
+            {
+                var bloco = new VisualElement();
+                bloco.style.flexGrow = 1;
+                bloco.style.flexBasis = 0;
+                var topo = new VisualElement();
+                topo.style.flexDirection = FlexDirection.Row;
+                topo.style.alignItems = Align.Center;
+                var rotulo = Estilo.Texto_($"{nome} -", 28, true);
+                rotulo.style.flexGrow = 1;
+                var mais = new Button(aoTocar) { text = "+" };
+                mais.style.width = 72; mais.style.height = 60;
+                mais.style.fontSize = 36;
+                mais.style.backgroundColor = cor;
+                mais.style.color = Color.white;
+                mais.style.Raio(14);
+                mais.style.BordaCor(cor, 0);
+                topo.Add(rotulo); topo.Add(mais);
+                var trilhoB = new VisualElement();
+                trilhoB.style.height = 22;
+                trilhoB.style.backgroundColor = Estilo.Borda;
+                trilhoB.style.Raio(11);
+                trilhoB.style.overflow = Overflow.Hidden;
+                var preenche = new VisualElement();
+                preenche.style.height = Length.Percent(100);
+                preenche.style.backgroundColor = cor;
+                preenche.style.width = Length.Percent(0);
+                trilhoB.Add(preenche);
+                bloco.Add(topo); bloco.Add(trilhoB);
+                return (bloco, preenche, rotulo);
+            }
+
+            void EscolherAgua()
+            {
+                Escolher("Quanto de água?", new[]
+                {
+                    ("1 copo (200 ml)", (Action)(() => _ = Registrar("hidratacao", 200, "moderada"))),
+                    ("1 garrafinha (500 ml)", (Action)(() => _ = Registrar("hidratacao", 500, "moderada"))),
+                    ("1 litro", (Action)(() => _ = Registrar("hidratacao", 1000, "moderada"))),
+                });
+            }
+
+            void EscolherMovimento()
+            {
+                Escolher("Que movimento?", new[]
+                {
+                    ("Alongar 5 min", (Action)(() => _ = Registrar("movimento", 5, "leve"))),
+                    ("Caminhar 10 min", (Action)(() => _ = Registrar("movimento", 10, "leve"))),
+                    ("Caminhar 30 min", (Action)(() => _ = Registrar("movimento", 30, "moderada"))),
+                    ("Treino 30 min", (Action)(() => _ = Registrar("movimento", 30, "pesada"))),
+                    ("Treino 1 hora", (Action)(() => _ = Registrar("movimento", 60, "pesada"))),
+                });
+            }
+
+            async Task Registrar(string tipo, int quantidade, string intensidade)
+            {
+                if (ocupado) return;
+                ocupado = true;
+                try
+                {
+                    var r = await api.RegistrarBarra(tipo, quantidade, intensidade);
+                    boneco.Comemorar();
+                    string extra = r.pontos > 0 ? $"  ·  +{r.pontos} pontos" : "";
+                    Aviso((tipo == "hidratacao" ? $"Água: {r.hidratacao}%" : $"Movimento: {r.movimento}%") + extra, Estilo.Sucesso);
+                    await Recarregar();
+                    if (r.subiu_de_nivel) MostrarSubiuDeNivel(r.nivel);
+                }
+                catch (Exception e) { Aviso(e.Message, Estilo.Perigo); }
+                finally { ocupado = false; }
+            }
+
+            // Sugestão do dia: uma por janela, escolhida pela barra mais baixa (Banco de Ideias 3.9).
+            VisualElement CartaoSugestao()
+            {
+                var s = SugestaoDoMomento(barras);
+                if (s == null) return null;
+                var c = Estilo.CaixaCartao();
+                c.style.backgroundColor = new Color(1f, 0.97f, 0.86f);
+                c.Add(Estilo.Texto_("Sugestão agora", 26, true, Estilo.Moeda));
+                c.Add(Estilo.Texto_(s.Value.texto, 34, true));
+                var feito = Estilo.Botao("Feito!", () =>
+                {
+                    PlayerPrefs.SetInt(s.Value.chave, 1);
+                    _ = Registrar(s.Value.tipo, s.Value.quantidade, s.Value.intensidade);
+                }, Estilo.Sucesso);
+                c.Add(feito);
+                return c;
             }
 
             VisualElement CartaoTarefa(Tarefa tarefa, DateTime hoje)
@@ -350,15 +466,149 @@ namespace JogoDaVida
             {
                 var s = api.Status();
                 var l = api.TarefasAtivas();
-                await Task.WhenAll(s, l);
+                var b = api.StatusBarras();
+                await Task.WhenAll(s, l, b);
                 status = s.Result;
                 tarefas = l.Result;
+                barras = b.Result;
+                Notificacoes.Agendar(barras);
                 Desenhar();
             }
 
             Desenhar();
             try { await Recarregar(); }
             catch (ErroApi e) when (e.Status == 401) { MostrarLogin(e.Message); }
+            catch (Exception e) { Aviso(e.Message, Estilo.Perigo); }
+        }
+
+        // =============================================================== Sugestões do dia
+
+        struct Sugestao
+        {
+            public string texto, tipo, intensidade, chave;
+            public int quantidade;
+        }
+
+        static readonly (int inicio, int fim, string nome)[] Janelas =
+        {
+            (8, 11, "manha"), (12, 14, "almoco"), (15, 18, "tarde"), (19, 22, "noite"),
+        };
+
+        /// <summary>Janela atual (ou null) e a sugestão para ela, se ainda não foi feita.</summary>
+        static Sugestao? SugestaoDoMomento(Barras b)
+        {
+            if (b == null || b.dormindo) return null;
+            var agora = DateTime.UtcNow.AddHours(-3);
+            foreach (var (inicio, fim, nome) in Janelas)
+            {
+                if (agora.Hour < inicio || agora.Hour >= fim) continue;
+                string chave = $"jdv.sugestao.{agora:yyyy-MM-dd}.{nome}";
+                if (PlayerPrefs.GetInt(chave, 0) == 1) return null;
+                bool agua = b.hidratacao <= b.movimento;
+                return agua
+                    ? new Sugestao { texto = "Beba um copo de água (200 ml).", tipo = "hidratacao", quantidade = 200, intensidade = "moderada", chave = chave }
+                    : new Sugestao { texto = nome == "almoco" ? "Caminhe 10 min depois de comer." : "Levante e alongue por 5 min.",
+                                     tipo = "movimento", quantidade = nome == "almoco" ? 10 : 5, intensidade = "leve", chave = chave };
+            }
+            return null;
+        }
+
+        void Escolher(string titulo, (string texto, Action acao)[] opcoes)
+        {
+            var fundo = new VisualElement();
+            fundo.style.position = Position.Absolute;
+            fundo.style.left = 0; fundo.style.right = 0; fundo.style.top = 0; fundo.style.bottom = 0;
+            fundo.style.backgroundColor = new Color(0, 0, 0, 0.45f);
+            fundo.style.justifyContent = Justify.FlexEnd;
+            var c = Estilo.CaixaCartao();
+            c.style.Margem(0, 0);
+            c.style.paddingBottom = 50;
+            c.Add(Estilo.Texto_(titulo, 44, true));
+            foreach (var (texto, acao) in opcoes)
+                c.Add(Estilo.Botao(texto, () => { fundo.RemoveFromHierarchy(); acao(); }));
+            c.Add(Estilo.Botao("Cancelar", () => fundo.RemoveFromHierarchy(), Estilo.TextoSuave, true));
+            fundo.Add(c);
+            sobreposicao.Add(fundo);
+        }
+
+        // =============================================================== Loja
+
+        async Task MostrarLoja()
+        {
+            var t = NovaTela(false);
+            var cab = new VisualElement();
+            cab.style.flexDirection = FlexDirection.Row;
+            cab.style.alignItems = Align.Center;
+            var titulo = Estilo.Texto_("Loja", 56, true);
+            titulo.style.flexGrow = 1;
+            var saldo = Estilo.Texto_("- moedas", 38, true, Estilo.Moeda);
+            cab.Add(titulo); cab.Add(saldo);
+            t.Add(cab);
+            var rolagem = Estilo.Rolagem();
+            t.Add(rolagem);
+            t.Add(Estilo.Botao("Voltar", () => _ = MostrarPrincipal(), Estilo.TextoSuave, true));
+
+            Item[] itens = new Item[0];
+            var meus = new System.Collections.Generic.HashSet<string>();
+
+            void Desenhar()
+            {
+                saldo.text = status != null ? $"{status.moedas} moedas" : "";
+                rolagem.Clear();
+                foreach (var (cat, nomeCat) in new[] { ("roupa", "Para o personagem"), ("movel", "Para o quarto") })
+                {
+                    rolagem.Add(Estilo.Texto_(nomeCat, 36, true, Estilo.TextoSuave));
+                    foreach (var item in itens.Where(i => i.categoria == cat))
+                    {
+                        bool tenho = meus.Contains(item.id);
+                        var c = Estilo.CaixaCartao();
+                        c.style.flexDirection = FlexDirection.Row;
+                        c.style.alignItems = Align.Center;
+                        var info = new VisualElement();
+                        info.style.flexGrow = 1; info.style.flexShrink = 1;
+                        info.Add(Estilo.Texto_(item.nome, 36, true));
+                        info.Add(Estilo.Texto_(item.descricao, 28, false, Estilo.TextoSuave));
+                        c.Add(info);
+                        bool podeComprar = !tenho && status != null && status.moedas >= item.preco;
+                        var b = Estilo.Botao(tenho ? "Seu" : $"{item.preco}", () => _ = Comprar(item),
+                            tenho ? Estilo.Sucesso : Estilo.Moeda, contorno: !podeComprar && !tenho);
+                        b.style.width = 180;
+                        b.style.marginLeft = 16;
+                        b.SetEnabled(podeComprar);
+                        c.Add(b);
+                        rolagem.Add(c);
+                    }
+                }
+            }
+
+            async Task Carregar()
+            {
+                var i = api.Itens();
+                var c = api.Compras();
+                var s = api.Status();
+                await Task.WhenAll(i, c, s);
+                itens = i.Result;
+                meus = new System.Collections.Generic.HashSet<string>(c.Result.Select(x => x.item_id));
+                status = s.Result;
+                Desenhar();
+            }
+
+            async Task Comprar(Item item)
+            {
+                if (ocupado) return;
+                ocupado = true;
+                try
+                {
+                    await api.ComprarItem(item.id);
+                    boneco.Comemorar();
+                    Aviso($"Você comprou: {item.nome}!", Estilo.Sucesso);
+                    await Carregar();
+                }
+                catch (Exception e) { Aviso(e.Message, Estilo.Perigo); }
+                finally { ocupado = false; }
+            }
+
+            try { await Carregar(); }
             catch (Exception e) { Aviso(e.Message, Estilo.Perigo); }
         }
 
