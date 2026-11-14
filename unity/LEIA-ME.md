@@ -47,3 +47,10 @@ mas não enquanto você dorme (horários do perfil; padrão 23:00 às 07:00).
 - **Loja:** 10 itens (5 para o personagem, 5 para o quarto). Por enquanto a compra fica registrada; os itens aparecem no 3D quando os modelos existirem.
 - **Sugestões do dia:** um cartão no topo da lista em cada janela (8-11h, 12-14h, 15-18h, 19-22h), pela barra mais baixa. No Android também vira notificação (8:30, 12:30, 15:30, 19:30). Tocar na notificação abre o app; o botão "Feito!" fica no cartão, porque o pacote de notificações do Unity não tem botão de ação no Android.
 - As notificações usam o pacote **Mobile Notifications** (`com.unity.mobile.notifications`).
+
+## Entrar sem tela de login (uso pessoal)
+
+Crie `Assets/JogoDaVida/Resources/conta_local.json` com `{ "email": "...", "senha": "..." }`.
+Com esse arquivo o app entra sozinho nessa conta e não mostra login nem o botão Sair.
+O arquivo está no `.gitignore` e nunca vai para o GitHub (vai só dentro do APK).
+Sem ele, o app mostra a tela de login normal.

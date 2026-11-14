@@ -71,7 +71,7 @@ namespace JogoDaVida
             raiz.Add(sobreposicao);
 
             if (api.Logado) _ = AbrirInicio();
-            else MostrarLogin();
+            else _ = EntrarOuPedirLogin();
         }
 
         // =============================================================== Navegação
@@ -109,7 +109,7 @@ namespace JogoDaVida
             }
             catch (ErroApi e) when (e.Status == 401)
             {
-                MostrarLogin(e.Message);
+                await EntrarOuPedirLogin(e.Message);
             }
             catch (Exception e)
             {
@@ -127,6 +127,30 @@ namespace JogoDaVida
         }
 
         // =============================================================== Login
+
+        int tentativasAutomaticas;
+
+        /// <summary>
+        /// Uso pessoal: se existir a conta fixa (Resources/conta_local.json, fora do Git),
+        /// entra sozinho nela, sem mostrar a tela de login. Sem o arquivo, mostra o login normal.
+        /// </summary>
+        async Task EntrarOuPedirLogin(string aviso = null)
+        {
+            var conta = ContaLocal.Carregar();
+            if (conta == null || tentativasAutomaticas >= 2) { MostrarLogin(aviso); return; }
+            tentativasAutomaticas++;
+            var t = NovaTela(false);
+            t.style.justifyContent = Justify.Center;
+            t.Add(Estilo.Texto_("Jogo da Vida", 72, true));
+            t.Add(Estilo.Texto_("Carregando...", 32, false, Estilo.TextoSuave));
+            try
+            {
+                await api.Entrar(conta.email, conta.senha);
+                await AbrirInicio();
+            }
+            catch (ErroApi e) when (e.Status == 0) { MostrarErroFatal(e.Message); }
+            catch (Exception e) { MostrarLogin(e.Message); }
+        }
 
         void MostrarLogin(string aviso = null)
         {
@@ -293,7 +317,8 @@ namespace JogoDaVida
             var sair = Estilo.Botao("Sair", () => { api.Sair(); MostrarLogin(); }, Estilo.TextoSuave, true);
             sair.style.width = 150;
             sair.style.marginLeft = 16;
-            rodape.Add(nova); rodape.Add(loja); rodape.Add(sair);
+            rodape.Add(nova); rodape.Add(loja);
+            if (ContaLocal.Carregar() == null) rodape.Add(sair); // com conta fixa não há como sair
             t.Add(rodape);
 
             void Desenhar()
@@ -481,7 +506,7 @@ namespace JogoDaVida
 
             Desenhar();
             try { await Recarregar(); }
-            catch (ErroApi e) when (e.Status == 401) { MostrarLogin(e.Message); }
+            catch (ErroApi e) when (e.Status == 401) { await EntrarOuPedirLogin(e.Message); }
             catch (Exception e) { Aviso(e.Message, Estilo.Perigo); }
         }
 

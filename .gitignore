@@ -19,3 +19,7 @@ unity-import.log
 unity-import-*.log
 Builds/
 unity/.utmp/
+
+# Conta fixa de uso pessoal (senha), nunca no Git
+unity/Assets/JogoDaVida/Resources/conta_local.json
+unity/Assets/JogoDaVida/Resources/conta_local.json.meta
