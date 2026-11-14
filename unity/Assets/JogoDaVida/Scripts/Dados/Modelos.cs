@@ -111,6 +111,9 @@ namespace JogoDaVida.Dados
         public int hidratacao;
         public int movimento;
         public int energia;
+        public int alimentacao;
+        public int meta_agua_ml;   // meta diária de água
+        public int agua_hoje_ml;   // quanto já bebeu hoje
         public bool dormindo;        // dormindo pelo horário do perfil ou de verdade
         public bool dormindo_agora;  // disse "vou dormir" e ainda não acordou
         // Preenchidos só ao registrar
@@ -120,7 +123,152 @@ namespace JogoDaVida.Dados
         public bool subiu_de_nivel;
 
         /// <summary>A barra mais baixa decide o estado visual (Banco de Ideias 3.4).</summary>
-        public int Menor => Math.Min(Math.Min(hidratacao, movimento), energia);
+        public int Menor => Math.Min(Math.Min(hidratacao, movimento), Math.Min(energia, alimentacao));
+    }
+
+    /// <summary>Uma refeição do plano alimentar (um dia da semana, um horário).</summary>
+    [Serializable]
+    public class Refeicao
+    {
+        public string id;
+        public int dia_semana;   // 0 = domingo a 6 = sábado
+        public string horario;   // "12:30:00"
+        public string nome;      // café da manhã, almoço...
+        public string tipo;      // refeicao | lanche
+        public string descricao;
+        public string observacoes;
+
+        /// <summary>Minutos desde a meia-noite (para ordenar e achar a próxima).</summary>
+        public int Minutos
+        {
+            get
+            {
+                var partes = (horario ?? "").Split(':');
+                if (partes.Length < 2 || !int.TryParse(partes[0], out var h) || !int.TryParse(partes[1], out var m)) return 0;
+                return h * 60 + m;
+            }
+        }
+
+        public string Hora => (horario ?? "").Length >= 5 ? horario.Substring(0, 5) : horario;
+    }
+
+    /// <summary>Corpo para criar ou editar uma refeição do plano (sem id e sem user_id).</summary>
+    [Serializable]
+    class EnvioRefeicao
+    {
+        public int dia_semana;
+        public string horario;
+        public string nome;
+        public string tipo;
+        public string descricao;
+        public string observacoes;
+    }
+
+    /// <summary>Uma marcação do dia: seguida, substituída ou perdida.</summary>
+    [Serializable]
+    public class RegistroRefeicao
+    {
+        public string refeicao_id; // vazio = fora do plano
+        public string status;      // seguida | substituida | perdida
+        public string o_que_comi;
+        public int pontos;
+    }
+
+    [Serializable]
+    class EnvioRegistroRefeicao
+    {
+        public string p_refeicao_id;
+        public string p_status;
+        public string p_o_que_comi;
+    }
+
+    [Serializable]
+    public class ResultadoRefeicao
+    {
+        public int alimentacao;
+        public int pontos;
+        public int moedas_ganhas;
+        public int nivel;
+        public bool subiu_de_nivel;
+    }
+
+    [Serializable]
+    class MetaAgua
+    {
+        public int meta_agua_ml;
+    }
+
+    /// <summary>Item da lista de mercado (não é a compra de itens da loja do jogo).</summary>
+    [Serializable]
+    public class ItemCompra
+    {
+        public string id;
+        public string item;
+        public string quantidade;
+        public string categoria;   // mercado | farmacia | casa | outros
+        public bool comprado;
+        public string comprado_em;
+    }
+
+    [Serializable]
+    class EnvioItemCompra
+    {
+        public string item;
+        public string quantidade;
+        public string categoria;
+    }
+
+    [Serializable]
+    class CorpoComprado
+    {
+        public bool comprado;
+        public string comprado_em;
+    }
+
+    /// <summary>Compromisso da agenda.</summary>
+    [Serializable]
+    public class Evento
+    {
+        public string id;
+        public string titulo;
+        public string descricao;
+        public string data;    // "2026-11-20"
+        public string hora;    // "14:00:00" ou vazio
+        public string status;  // pendente | feito
+
+        public bool Feito => status == "feito";
+        public string Hora => string.IsNullOrEmpty(hora) ? "" : hora.Length >= 5 ? hora.Substring(0, 5) : hora;
+        public DateTime Dia => DateTime.TryParse(data, out var d) ? d.Date : DateTime.MinValue;
+    }
+
+    [Serializable]
+    class EnvioEvento
+    {
+        public string titulo;
+        public string descricao;
+        public string data;
+    }
+
+    [Serializable]
+    class EnvioEventoComHora
+    {
+        public string titulo;
+        public string descricao;
+        public string data;
+        public string hora;
+    }
+
+    [Serializable]
+    class CorpoEventoFeito
+    {
+        public string status;
+        public string feito_em;
+    }
+
+    [Serializable]
+    class CorpoAdiar
+    {
+        public string data;
     }
 
     /// <summary>Resposta de registrar_sono.</summary>

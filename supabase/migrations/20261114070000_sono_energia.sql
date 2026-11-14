@@ -23,10 +23,9 @@ create table public.sono_registro (
 );
 create index sono_registro_user_idx on public.sono_registro (user_id, criado_em desc);
 
--- Muda a assinatura (entra energia), então precisa recriar.
-drop function public.atualizar_barras(uuid);
-create function public.atualizar_barras(p_uid uuid,
-  out hidratacao numeric, out movimento numeric, out energia numeric, out dormindo boolean)
+-- Mesma assinatura de antes (sem drop); a energia é atualizada em perfil.energia.
+create or replace function public.atualizar_barras(p_uid uuid,
+  out hidratacao numeric, out movimento numeric, out dormindo boolean)
 language plpgsql security definer set search_path = '' as $$
 declare
   v_p public.perfil%rowtype;
@@ -48,7 +47,6 @@ begin
     else 0 end;
   hidratacao := greatest(0, v_p.hidratacao - v_horas * 12.5);
   movimento  := greatest(0, v_p.movimento  - v_horas * (100.0 / 24));
-  energia    := greatest(0, v_p.energia    - v_horas * (100.0 / 16));
   dormindo := v_p.dormindo_desde is not null
            or not (case when v_dorme > v_acorda
                         then v_agora >= v_acorda and v_agora < v_dorme
@@ -56,7 +54,7 @@ begin
   update public.perfil
      set hidratacao = atualizar_barras.hidratacao,
          movimento = atualizar_barras.movimento,
-         energia = atualizar_barras.energia,
+         energia = greatest(0, v_p.energia - v_horas * (100.0 / 16)),
          barras_em = now()
    where user_id = p_uid;
 end $$;
@@ -64,13 +62,14 @@ revoke all on function public.atualizar_barras(uuid) from public, anon, authenti
 
 create or replace function public.status_barras()
 returns jsonb language plpgsql security definer set search_path = '' as $$
-declare r record;
+declare r record; p record;
 begin
   if auth.uid() is null then raise exception 'não autenticado' using errcode = '28000'; end if;
   select * into r from public.atualizar_barras(auth.uid());
+  select energia, dormindo_desde into p from public.perfil where user_id = auth.uid();
   return jsonb_build_object('hidratacao', round(r.hidratacao), 'movimento', round(r.movimento),
-    'energia', round(r.energia), 'dormindo', r.dormindo,
-    'dormindo_agora', (select dormindo_desde is not null from public.perfil where user_id = auth.uid()));
+    'energia', round(p.energia), 'dormindo', r.dormindo,
+    'dormindo_agora', p.dormindo_desde is not null);
 end $$;
 
 -- p_acao: 'dormir' ou 'acordar'.
@@ -78,7 +77,6 @@ create or replace function public.registrar_sono(p_acao text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v_uid uuid := auth.uid();
-  r record;
   v_sono public.sono_registro%rowtype;
   v_horas numeric;
   v_energia numeric;
@@ -88,8 +86,8 @@ begin
   if v_uid is null then raise exception 'não autenticado' using errcode = '28000'; end if;
   if p_acao not in ('dormir', 'acordar') then raise exception 'ação inválida' using errcode = '22023'; end if;
 
-  select * into r from public.atualizar_barras(v_uid);  -- desgaste até agora
-  v_energia := r.energia;
+  perform public.atualizar_barras(v_uid);  -- desgaste até agora
+  select energia into v_energia from public.perfil where user_id = v_uid;
 
   if p_acao = 'dormir' then
     -- Fecha uma noite que ficou aberta (esqueceu de dizer que acordou).

@@ -132,6 +132,88 @@ namespace JogoDaVida.Dados
             return JsonUtility.FromJson<ResultadoSono>(json);
         }
 
+        // ------------------------------------------------- Lista de mercado
+
+        public Task<ItemCompra[]> ListaDeCompras() =>
+            GetLista<ItemCompra>("/rest/v1/lista_compras?select=*&comprado=eq.false&order=categoria.asc,criado_em.asc");
+
+        public Task<ItemCompra[]> HistoricoDeCompras() =>
+            GetLista<ItemCompra>("/rest/v1/lista_compras?select=*&comprado=eq.true&order=comprado_em.desc&limit=50");
+
+        public Task AdicionarCompra(string item, string quantidade, string categoria) =>
+            Autenticado("POST", "/rest/v1/lista_compras",
+                JsonUtility.ToJson(new EnvioItemCompra { item = item, quantidade = quantidade, categoria = categoria }));
+
+        public Task MarcarComprado(string id) =>
+            Autenticado("PATCH", "/rest/v1/lista_compras?id=eq." + id,
+                JsonUtility.ToJson(new CorpoComprado { comprado = true, comprado_em = DateTime.UtcNow.ToString("o") }));
+
+        public Task RemoverCompra(string id) =>
+            Autenticado("DELETE", "/rest/v1/lista_compras?id=eq." + id, null);
+
+        // ------------------------------------------------- Agenda
+
+        /// <summary>Eventos a partir de uma data ("2026-11-14"), mais os não realizados dos últimos 30 dias.</summary>
+        public Task<Evento[]> Agenda(string desde) =>
+            GetLista<Evento>("/rest/v1/eventos?select=*&data=gte." + desde + "&order=data.asc,hora.asc.nullsfirst&limit=200");
+
+        public Task<Evento[]> EventosPassados(string ate) =>
+            GetLista<Evento>("/rest/v1/eventos?select=*&data=lt." + ate + "&order=data.desc&limit=30");
+
+        /// <summary>hora vazia = sem horário.</summary>
+        public Task CriarEvento(string titulo, string descricao, string data, string hora) =>
+            Autenticado("POST", "/rest/v1/eventos", string.IsNullOrEmpty(hora)
+                ? JsonUtility.ToJson(new EnvioEvento { titulo = titulo, descricao = descricao, data = data })
+                : JsonUtility.ToJson(new EnvioEventoComHora { titulo = titulo, descricao = descricao, data = data, hora = hora }));
+
+        public Task MarcarEventoFeito(string id) =>
+            Autenticado("PATCH", "/rest/v1/eventos?id=eq." + id,
+                JsonUtility.ToJson(new CorpoEventoFeito { status = "feito", feito_em = DateTime.UtcNow.ToString("o") }));
+
+        public Task AdiarEvento(string id, string novaData) =>
+            Autenticado("PATCH", "/rest/v1/eventos?id=eq." + id, JsonUtility.ToJson(new CorpoAdiar { data = novaData }));
+
+        public Task RemoverEvento(string id) =>
+            Autenticado("DELETE", "/rest/v1/eventos?id=eq." + id, null);
+
+        // ------------------------------------------------- Plano alimentar
+
+        public Task<Refeicao[]> PlanoAlimentar() =>
+            GetLista<Refeicao>("/rest/v1/refeicoes?select=*&order=dia_semana.asc,horario.asc");
+
+        /// <summary>Marcações de hoje (data no fuso de Brasília, "2026-11-14").</summary>
+        public Task<RegistroRefeicao[]> RefeicoesDoDia(string data) =>
+            GetLista<RegistroRefeicao>("/rest/v1/refeicoes_registro?select=refeicao_id,status,o_que_comi,pontos&data=eq." + data + "&order=criado_em.asc");
+
+        /// <summary>Cria (id vazio) ou atualiza uma refeição do plano.</summary>
+        public Task SalvarRefeicao(Refeicao r)
+        {
+            var corpo = JsonUtility.ToJson(new EnvioRefeicao
+            {
+                dia_semana = r.dia_semana, horario = r.horario, nome = r.nome, tipo = r.tipo,
+                descricao = r.descricao, observacoes = r.observacoes,
+            });
+            return string.IsNullOrEmpty(r.id)
+                ? Autenticado("POST", "/rest/v1/refeicoes", corpo)
+                : Autenticado("PATCH", "/rest/v1/refeicoes?id=eq." + r.id, corpo);
+        }
+
+        public Task RemoverRefeicao(string id) =>
+            Autenticado("DELETE", "/rest/v1/refeicoes?id=eq." + id, null);
+
+        /// <summary>refeicaoId vazio = comeu algo fora do plano (oQueComi obrigatório).</summary>
+        public async Task<ResultadoRefeicao> RegistrarRefeicao(string refeicaoId, string status, string oQueComi = "")
+        {
+            var corpo = JsonUtility.ToJson(new EnvioRegistroRefeicao { p_refeicao_id = refeicaoId ?? "", p_status = status, p_o_que_comi = oQueComi ?? "" });
+            // O JsonUtility escreve string nula como "", mas o banco espera null para "fora do plano".
+            if (string.IsNullOrEmpty(refeicaoId)) corpo = corpo.Replace("\"p_refeicao_id\":\"\"", "\"p_refeicao_id\":null");
+            var json = await Autenticado("POST", "/rest/v1/rpc/registrar_refeicao", corpo);
+            return JsonUtility.FromJson<ResultadoRefeicao>(json);
+        }
+
+        public Task SalvarMetaAgua(int ml) =>
+            Autenticado("PATCH", "/rest/v1/perfil?user_id=eq." + Sessao.user.id, JsonUtility.ToJson(new MetaAgua { meta_agua_ml = ml }));
+
         /// <summary>tipo: "hidratacao" (quantidade em ml) ou "movimento" (quantidade em minutos).</summary>
         public async Task<Barras> RegistrarBarra(string tipo, int quantidade, string intensidade = "moderada")
         {
