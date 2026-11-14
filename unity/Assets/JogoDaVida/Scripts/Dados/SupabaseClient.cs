@@ -119,6 +119,27 @@ namespace JogoDaVida.Dados
         public Task EnviarPerfil(EnvioPerfil perfil) =>
             Autenticado("POST", "/functions/v1/gerar-memoria", JsonUtility.ToJson(perfil));
 
+        public async Task<Barras> StatusBarras()
+        {
+            var json = await Autenticado("POST", "/rest/v1/rpc/status_barras", "{}");
+            return JsonUtility.FromJson<Barras>(json);
+        }
+
+        /// <summary>tipo: "hidratacao" (quantidade em ml) ou "movimento" (quantidade em minutos).</summary>
+        public async Task<Barras> RegistrarBarra(string tipo, int quantidade, string intensidade = "moderada")
+        {
+            var corpo = JsonUtility.ToJson(new RegistroBarra { p_tipo = tipo, p_quantidade = quantidade, p_intensidade = intensidade });
+            var json = await Autenticado("POST", "/rest/v1/rpc/registrar_barra", corpo);
+            return JsonUtility.FromJson<Barras>(json);
+        }
+
+        public Task<Item[]> Itens() => GetLista<Item>("/rest/v1/itens?select=*&order=ordem.asc");
+
+        public Task<Compra[]> Compras() => GetLista<Compra>("/rest/v1/compras?select=item_id,equipado");
+
+        public Task ComprarItem(string itemId) =>
+            Autenticado("POST", "/rest/v1/rpc/comprar_item", JsonUtility.ToJson(new IdItem { p_item_id = itemId }));
+
         // ------------------------------------------------------------------ HTTP
 
         async Task<T[]> GetLista<T>(string caminho)
