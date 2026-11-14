@@ -28,8 +28,10 @@ O app faz login no Supabase Auth e usa o token do usuário em tudo:
 | Arquivar tarefa | `POST /rest/v1/rpc/arquivar_tarefa` `{ p_tarefa_id }` |
 | Ler tarefas / histórico | `GET /rest/v1/tarefas`, `GET /rest/v1/conclusoes` |
 | Ler XP, nível, moedas | `GET /rest/v1/status_jogador` |
+| Catálogo de tarefas padrão | `GET/POST /rest/v1/tarefas_padrao`, `PATCH/DELETE /rest/v1/tarefas_padrao?id=eq.<id>` (o jogador edita o próprio catálogo; não tem pontos) |
+| Restaurar as tarefas iniciais do catálogo | `POST /rest/v1/rpc/restaurar_tarefas_padrao` → quantas voltaram |
 
-O app só lê as tabelas; pontos, XP e moedas só são gravados pelo servidor
+O app só lê as tabelas (exceto o catálogo `tarefas_padrao`, que o jogador edita); pontos, XP e moedas só são gravados pelo servidor
 (o jogador não mexe na pontuação).
 
 ## Regras provisórias (ajustar com o uso)
