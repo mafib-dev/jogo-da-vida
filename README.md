@@ -31,6 +31,8 @@ O app faz login no Supabase Auth e usa o token do usuário em tudo:
 | Plano alimentar | `GET/POST /rest/v1/refeicoes`, `PATCH/DELETE /rest/v1/refeicoes?id=eq.<id>` (o jogador edita o próprio plano; não tem pontos) |
 | Marcar refeição | `POST /rest/v1/rpc/registrar_refeicao` `{ p_refeicao_id (null = fora do plano), p_status: "seguida" \| "substituida" \| "perdida", p_o_que_comi? }` |
 | Meta de água | `PATCH /rest/v1/perfil?user_id=eq.<id>` `{ meta_agua_ml }` |
+| Lista de compras (sem pontos) | `GET/POST /rest/v1/lista_compras`, `PATCH ...?id=eq.<id>` `{ comprado: true, comprado_em }`, `DELETE ...?id=eq.<id>` |
+| Agenda (sem pontos) | `GET/POST /rest/v1/eventos`, `PATCH ...?id=eq.<id>` (`{ status: "feito", feito_em }` ou `{ data }` para adiar), `DELETE` |
 | Ler XP, nível, moedas | `GET /rest/v1/status_jogador` |
 | Catálogo de tarefas padrão | `GET/POST /rest/v1/tarefas_padrao`, `PATCH/DELETE /rest/v1/tarefas_padrao?id=eq.<id>` (o jogador edita o próprio catálogo; não tem pontos) |
 | Restaurar as tarefas iniciais do catálogo | `POST /rest/v1/rpc/restaurar_tarefas_padrao` → quantas voltaram |

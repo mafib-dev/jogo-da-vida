@@ -132,6 +132,50 @@ namespace JogoDaVida.Dados
             return JsonUtility.FromJson<ResultadoSono>(json);
         }
 
+        // ------------------------------------------------- Lista de mercado
+
+        public Task<ItemCompra[]> ListaDeCompras() =>
+            GetLista<ItemCompra>("/rest/v1/lista_compras?select=*&comprado=eq.false&order=categoria.asc,criado_em.asc");
+
+        public Task<ItemCompra[]> HistoricoDeCompras() =>
+            GetLista<ItemCompra>("/rest/v1/lista_compras?select=*&comprado=eq.true&order=comprado_em.desc&limit=50");
+
+        public Task AdicionarCompra(string item, string quantidade, string categoria) =>
+            Autenticado("POST", "/rest/v1/lista_compras",
+                JsonUtility.ToJson(new EnvioItemCompra { item = item, quantidade = quantidade, categoria = categoria }));
+
+        public Task MarcarComprado(string id) =>
+            Autenticado("PATCH", "/rest/v1/lista_compras?id=eq." + id,
+                JsonUtility.ToJson(new CorpoComprado { comprado = true, comprado_em = DateTime.UtcNow.ToString("o") }));
+
+        public Task RemoverCompra(string id) =>
+            Autenticado("DELETE", "/rest/v1/lista_compras?id=eq." + id, null);
+
+        // ------------------------------------------------- Agenda
+
+        /// <summary>Eventos a partir de uma data ("2026-11-14"), mais os não realizados dos últimos 30 dias.</summary>
+        public Task<Evento[]> Agenda(string desde) =>
+            GetLista<Evento>("/rest/v1/eventos?select=*&data=gte." + desde + "&order=data.asc,hora.asc.nullsfirst&limit=200");
+
+        public Task<Evento[]> EventosPassados(string ate) =>
+            GetLista<Evento>("/rest/v1/eventos?select=*&data=lt." + ate + "&order=data.desc&limit=30");
+
+        /// <summary>hora vazia = sem horário.</summary>
+        public Task CriarEvento(string titulo, string descricao, string data, string hora) =>
+            Autenticado("POST", "/rest/v1/eventos", string.IsNullOrEmpty(hora)
+                ? JsonUtility.ToJson(new EnvioEvento { titulo = titulo, descricao = descricao, data = data })
+                : JsonUtility.ToJson(new EnvioEventoComHora { titulo = titulo, descricao = descricao, data = data, hora = hora }));
+
+        public Task MarcarEventoFeito(string id) =>
+            Autenticado("PATCH", "/rest/v1/eventos?id=eq." + id,
+                JsonUtility.ToJson(new CorpoEventoFeito { status = "feito", feito_em = DateTime.UtcNow.ToString("o") }));
+
+        public Task AdiarEvento(string id, string novaData) =>
+            Autenticado("PATCH", "/rest/v1/eventos?id=eq." + id, JsonUtility.ToJson(new CorpoAdiar { data = novaData }));
+
+        public Task RemoverEvento(string id) =>
+            Autenticado("DELETE", "/rest/v1/eventos?id=eq." + id, null);
+
         // ------------------------------------------------- Plano alimentar
 
         public Task<Refeicao[]> PlanoAlimentar() =>

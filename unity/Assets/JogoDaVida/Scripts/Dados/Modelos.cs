@@ -198,6 +198,79 @@ namespace JogoDaVida.Dados
         public int meta_agua_ml;
     }
 
+    /// <summary>Item da lista de mercado (não é a compra de itens da loja do jogo).</summary>
+    [Serializable]
+    public class ItemCompra
+    {
+        public string id;
+        public string item;
+        public string quantidade;
+        public string categoria;   // mercado | farmacia | casa | outros
+        public bool comprado;
+        public string comprado_em;
+    }
+
+    [Serializable]
+    class EnvioItemCompra
+    {
+        public string item;
+        public string quantidade;
+        public string categoria;
+    }
+
+    [Serializable]
+    class CorpoComprado
+    {
+        public bool comprado;
+        public string comprado_em;
+    }
+
+    /// <summary>Compromisso da agenda.</summary>
+    [Serializable]
+    public class Evento
+    {
+        public string id;
+        public string titulo;
+        public string descricao;
+        public string data;    // "2026-11-20"
+        public string hora;    // "14:00:00" ou vazio
+        public string status;  // pendente | feito
+
+        public bool Feito => status == "feito";
+        public string Hora => string.IsNullOrEmpty(hora) ? "" : hora.Length >= 5 ? hora.Substring(0, 5) : hora;
+        public DateTime Dia => DateTime.TryParse(data, out var d) ? d.Date : DateTime.MinValue;
+    }
+
+    [Serializable]
+    class EnvioEvento
+    {
+        public string titulo;
+        public string descricao;
+        public string data;
+    }
+
+    [Serializable]
+    class EnvioEventoComHora
+    {
+        public string titulo;
+        public string descricao;
+        public string data;
+        public string hora;
+    }
+
+    [Serializable]
+    class CorpoEventoFeito
+    {
+        public string status;
+        public string feito_em;
+    }
+
+    [Serializable]
+    class CorpoAdiar
+    {
+        public string data;
+    }
+
     /// <summary>Resposta de registrar_sono.</summary>
     [Serializable]
     public class ResultadoSono

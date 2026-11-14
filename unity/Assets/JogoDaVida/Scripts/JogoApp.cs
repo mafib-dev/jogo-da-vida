@@ -315,6 +315,16 @@ namespace JogoDaVida
             lista = Estilo.Rolagem();
             t.Add(lista);
 
+            // Organizador: agenda e lista de compras (não dão pontos)
+            var atalhos = new VisualElement();
+            atalhos.style.flexDirection = FlexDirection.Row;
+            var agenda = Estilo.Botao("Agenda", () => _ = MostrarAgenda(), Estilo.Primaria, true);
+            agenda.style.flexGrow = 1; agenda.style.flexBasis = 0; agenda.style.marginRight = 16;
+            var listaCompras = Estilo.Botao("Compras", () => _ = MostrarCompras(), Estilo.Primaria, true);
+            listaCompras.style.flexGrow = 1; listaCompras.style.flexBasis = 0;
+            atalhos.Add(agenda); atalhos.Add(listaCompras);
+            t.Add(atalhos);
+
             var rodape = new VisualElement();
             rodape.style.flexDirection = FlexDirection.Row;
             var nova = Estilo.Botao("+ Nova tarefa", () => _ = MostrarCatalogo());
@@ -357,6 +367,7 @@ namespace JogoDaVida
                 lista.Clear();
                 var sugestao = CartaoSugestao();
                 if (sugestao != null) lista.Add(sugestao);
+                CartoesOrganizador(lista);
                 var refeicao = CartaoProximaRefeicao();
                 if (refeicao != null) lista.Add(refeicao);
                 var hoje = HojeBrasilia();
@@ -551,7 +562,8 @@ namespace JogoDaVida
                 var l = api.TarefasAtivas();
                 var b = api.StatusBarras();
                 var p = api.PlanoAlimentar();
-                await Task.WhenAll(s, l, b, p);
+                var o = CarregarOrganizador();
+                await Task.WhenAll(s, l, b, p, o);
                 status = s.Result;
                 tarefas = l.Result;
                 barras = b.Result;
