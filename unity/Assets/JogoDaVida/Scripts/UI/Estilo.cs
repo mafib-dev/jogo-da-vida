@@ -84,13 +84,20 @@ namespace JogoDaVida.UI
             t.labelElement.style.color = TextoSuave;
             t.labelElement.style.minWidth = 0;
             t.labelElement.style.marginBottom = 6;
+            // Perguntas longas quebram a linha em vez de cortar com "...".
+            t.labelElement.style.whiteSpace = WhiteSpace.Normal;
+            t.labelElement.style.textOverflow = TextOverflow.Clip;
+            t.labelElement.style.flexShrink = 1;
             var entrada = t.Q(className: TextField.inputUssClassName);
             if (entrada != null)
             {
                 entrada.style.fontSize = 34;
                 entrada.style.minHeight = multilinha ? 160 : 96;
                 entrada.style.backgroundColor = Color.white;
-                entrada.style.color = Texto;
+                // Texto de exemplo em cinza; o que a pessoa digita, escuro.
+                void Cor() => entrada.style.color = string.IsNullOrEmpty(t.value) ? TextoSuave : Texto;
+                Cor();
+                t.RegisterValueChangedCallback(_ => Cor());
                 entrada.style.BordaCor(Borda, 2);
                 entrada.style.Raio(14);
                 entrada.style.Preenchimento(10, 18);
@@ -158,6 +165,37 @@ namespace JogoDaVida.UI
             s.horizontalScrollerVisibility = ScrollerVisibility.Hidden;
             s.verticalScrollerVisibility = ScrollerVisibility.Hidden;
             s.touchScrollBehavior = ScrollView.TouchScrollBehavior.Clamped;
+
+            // A caixa de texto "prende" o toque e impede a rolagem. Quando o arrasto começa
+            // em cima de um campo, a própria lista rola e o campo solta o toque.
+            int dedo = -1;
+            float inicioY = 0, inicioOffset = 0;
+            bool arrastando = false;
+            s.RegisterCallback<PointerDownEvent>(e =>
+            {
+                dedo = -1;
+                if (e.target is VisualElement alvo && (alvo is TextField || alvo.GetFirstAncestorOfType<TextField>() != null))
+                {
+                    dedo = e.pointerId;
+                    inicioY = e.position.y;
+                    inicioOffset = s.scrollOffset.y;
+                    arrastando = false;
+                }
+            }, TrickleDown.TrickleDown);
+            s.RegisterCallback<PointerMoveEvent>(e =>
+            {
+                if (e.pointerId != dedo) return;
+                float dy = e.position.y - inicioY;
+                if (!arrastando && Mathf.Abs(dy) > 25)
+                {
+                    arrastando = true;
+                    var preso = s.panel?.GetCapturingElement(e.pointerId);
+                    if (preso != null && preso != s) preso.ReleasePointer(e.pointerId);
+                    s.focusController?.focusedElement?.Blur();
+                }
+                if (arrastando) s.scrollOffset = new Vector2(0, inicioOffset - dy);
+            }, TrickleDown.TrickleDown);
+            s.RegisterCallback<PointerUpEvent>(e => { if (e.pointerId == dedo) dedo = -1; }, TrickleDown.TrickleDown);
             return s;
         }
     }
