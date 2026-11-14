@@ -107,9 +107,10 @@ Deno.serve(async (req) => {
   const titulo = texto(entrada.titulo, 120) ?? (existente?.titulo as string | undefined) ?? null;
   const descricao = texto(entrada.descricao, 500) ?? (existente?.descricao as string | null) ?? null;
   const contexto = texto(entrada.contexto, 500) ?? (existente?.contexto as string | null) ?? null;
-  const minutos = Number(entrada.minutos ?? existente?.minutos);
-  const intensidade = (entrada.intensidade ?? existente?.intensidade) as Intensidade;
-  const recorrencia = (entrada.recorrencia ?? existente?.recorrencia ?? "avulsa") as string;
+  // Campos vazios ou 0 contam como "não enviado" (o app em Unity manda todos os campos).
+  const minutos = Number(entrada.minutos || existente?.minutos);
+  const intensidade = (texto(entrada.intensidade, 20) ?? existente?.intensidade) as Intensidade;
+  const recorrencia = (texto(entrada.recorrencia, 20) ?? existente?.recorrencia ?? "avulsa") as string;
 
   if (!titulo) return json({ erro: "titulo é obrigatório" }, 400);
   if (!Number.isInteger(minutos) || minutos < 1 || minutos > 600) {

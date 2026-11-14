@@ -12,7 +12,7 @@ supabase/
     pontuar-tarefa/  cadastra ou recalcula uma tarefa; o Qwen define o fator pessoal
     gerar-memoria/   transforma as 8 respostas do perfil inicial na "memória" do jogador
     _shared/         fórmula de pontuação e chamada ao Qwen
-unity/             projeto Unity (passo 2)
+unity/             app Android em Unity (veja unity/LEIA-ME.md)
 ```
 
 ## Como o app conversa com o backend
