@@ -309,7 +309,7 @@ namespace JogoDaVida
 
             var rodape = new VisualElement();
             rodape.style.flexDirection = FlexDirection.Row;
-            var nova = Estilo.Botao("+ Nova tarefa", MostrarNovaTarefa);
+            var nova = Estilo.Botao("+ Nova tarefa", () => _ = MostrarCatalogo());
             nova.style.flexGrow = 1;
             var loja = Estilo.Botao("Loja", () => _ = MostrarLoja(), Estilo.Moeda);
             loja.style.width = 180;
@@ -347,7 +347,7 @@ namespace JogoDaVida
                 var ordenadas = tarefas.OrderBy(x => x.FeitaNoPeriodo(hoje)).ThenBy(x => x.recorrencia == "avulsa" ? 1 : 0).ToArray();
                 if (ordenadas.Length == 0)
                 {
-                    lista.Add(Estilo.Texto_("Nenhuma tarefa ainda. Toque em \"+ Nova tarefa\" para cadastrar a primeira, como lavar a louça ou tirar o lixo.", 32, false, Estilo.TextoSuave));
+                    lista.Add(Estilo.Texto_("Nenhuma tarefa ainda. Toque em \"+ Nova tarefa\" e escolha uma do catálogo, como lavar a louça ou tirar o lixo.", 32, false, Estilo.TextoSuave));
                 }
                 foreach (var tarefa in ordenadas) lista.Add(CartaoTarefa(tarefa, hoje));
 
@@ -645,7 +645,8 @@ namespace JogoDaVida
 
         // =============================================================== Nova tarefa
 
-        void MostrarNovaTarefa()
+        /// <summary>Formulário de nova tarefa. Com um item do catálogo, já vem preenchido.</summary>
+        void MostrarNovaTarefa(TarefaPadrao modelo = null)
         {
             var t = NovaTela(false);
             t.Add(Estilo.Texto_("Nova tarefa", 52, true));
@@ -655,12 +656,18 @@ namespace JogoDaVida
             var titulo = Estilo.Campo("O que você fez ou vai fazer?", "Ex.: Lavar a louça");
             var minutos = Estilo.Campo("Quanto tempo leva (minutos)?", "Ex.: 20");
             minutos.keyboardType = TouchScreenKeyboardType.NumberPad;
-            string intensidade = "moderada", recorrencia = "diaria";
+            string intensidade = modelo?.intensidade ?? "moderada", recorrencia = modelo?.recorrencia ?? "diaria";
+            if (modelo != null)
+            {
+                titulo.value = modelo.titulo;
+                minutos.value = modelo.minutos.ToString();
+            }
             var esc1 = Estilo.Escolha("Intensidade", new[] { ("leve", "Leve"), ("moderada", "Moderada"), ("pesada", "Pesada") },
                 intensidade, v => intensidade = v);
             var esc2 = Estilo.Escolha("Repete?", new[] { ("avulsa", "Só uma vez"), ("diaria", "Todo dia"), ("semanal", "Toda semana") },
                 recorrencia, v => recorrencia = v);
             var descricao = Estilo.Campo("Detalhes (opcional)", "", true);
+            if (!string.IsNullOrEmpty(modelo?.descricao)) descricao.value = modelo.descricao;
             var contexto = Estilo.Campo("Algo fora do comum? (opcional)", "Ex.: o banheiro estava muito sujo", true);
             var msg = Estilo.Texto_("", 30, false, Estilo.Perigo);
             foreach (var e in new VisualElement[] { titulo, minutos, esc1, esc2, descricao, contexto, msg }) rolagem.Add(e);
@@ -699,7 +706,177 @@ namespace JogoDaVida
             }
 
             rolagem.Add(Estilo.Botao("Calcular pontos", () => _ = Salvar()));
-            rolagem.Add(Estilo.Botao("Cancelar", () => _ = MostrarPrincipal(), Estilo.TextoSuave, true));
+            rolagem.Add(Estilo.Botao("Voltar ao catálogo", () => _ = MostrarCatalogo(), Estilo.TextoSuave, true));
+        }
+
+        // =============================================================== Catálogo de tarefas padrão
+
+        static readonly (string valor, string texto)[] Categorias =
+        {
+            ("casa", "Casa"), ("saude", "Saúde"), ("conhecimento", "Conhecimento"), ("financas", "Finanças"), ("outra", "Outras"),
+        };
+
+        static string TextoRecorrencia(string r) => r == "diaria" ? "diária" : r == "semanal" ? "semanal" : "avulsa";
+
+        /// <summary>
+        /// Lista de tarefas prontas, por categoria. Tocar num item abre o cadastro já preenchido.
+        /// O catálogo é do jogador: dá para adicionar, editar, remover e restaurar as iniciais.
+        /// </summary>
+        async Task MostrarCatalogo()
+        {
+            var t = NovaTela(false);
+            t.Add(Estilo.Texto_("Nova tarefa", 52, true));
+            t.Add(Estilo.Texto_("Escolha uma tarefa pronta ou crie do zero. O tempo e o resto dá para ajustar antes de salvar.", 28, false, Estilo.TextoSuave));
+            t.Add(Estilo.Botao("Criar do zero", () => MostrarNovaTarefa()));
+            var rolagem = Estilo.Rolagem();
+            t.Add(rolagem);
+            t.Add(Estilo.Botao("Voltar", () => _ = MostrarPrincipal(), Estilo.TextoSuave, true));
+
+            TarefaPadrao[] catalogo = new TarefaPadrao[0];
+            var carregando = Estilo.Texto_("Carregando o catálogo...", 30, false, Estilo.TextoSuave);
+            rolagem.Add(carregando);
+
+            void Desenhar()
+            {
+                rolagem.Clear();
+                var naLista = new System.Collections.Generic.HashSet<string>(
+                    tarefas.Select(x => x.titulo.Trim().ToLowerInvariant()));
+                if (catalogo.Length == 0)
+                    rolagem.Add(Estilo.Texto_("Seu catálogo está vazio. Adicione uma tarefa ou restaure as iniciais.", 30, false, Estilo.TextoSuave));
+                foreach (var (cat, nomeCat) in Categorias)
+                {
+                    var daCategoria = catalogo.Where(i => (i.categoria ?? "outra") == cat).ToArray();
+                    if (daCategoria.Length == 0) continue;
+                    rolagem.Add(Estilo.Texto_(nomeCat, 36, true, Estilo.TextoSuave));
+                    foreach (var item in daCategoria)
+                    {
+                        var c = Estilo.CaixaCartao();
+                        c.style.flexDirection = FlexDirection.Row;
+                        c.style.alignItems = Align.Center;
+                        var info = new VisualElement();
+                        info.style.flexGrow = 1; info.style.flexShrink = 1;
+                        info.Add(Estilo.Texto_(item.titulo, 36, true));
+                        string jaTem = naLista.Contains(item.titulo.Trim().ToLowerInvariant()) ? " · já na sua lista" : "";
+                        info.Add(Estilo.Texto_($"{item.minutos} min · {item.intensidade} · {TextoRecorrencia(item.recorrencia)}{jaTem}", 28, false, Estilo.TextoSuave));
+                        info.RegisterCallback<ClickEvent>(_ => MostrarNovaTarefa(item));
+                        c.Add(info);
+                        var editar = Estilo.Botao("Editar", () => MostrarEditarPadrao(item), Estilo.TextoSuave, true);
+                        editar.style.width = 170;
+                        editar.style.marginLeft = 16;
+                        c.Add(editar);
+                        rolagem.Add(c);
+                    }
+                }
+                rolagem.Add(Estilo.Botao("+ Adicionar ao catálogo", () => MostrarEditarPadrao(null), contorno: true));
+                rolagem.Add(Estilo.Botao("Restaurar tarefas iniciais", () => _ = Restaurar(), Estilo.TextoSuave, true));
+            }
+
+            async Task Restaurar()
+            {
+                if (ocupado) return;
+                ocupado = true;
+                try
+                {
+                    int n = await api.RestaurarTarefasPadrao();
+                    Aviso(n > 0 ? $"{n} tarefa(s) voltaram ao catálogo." : "Todas as tarefas iniciais já estão no catálogo.", Estilo.Sucesso);
+                    catalogo = await api.CatalogoTarefas();
+                    Desenhar();
+                }
+                catch (Exception e) { Aviso(e.Message, Estilo.Perigo); }
+                finally { ocupado = false; }
+            }
+
+            try
+            {
+                var c = api.CatalogoTarefas();
+                var l = api.TarefasAtivas();
+                await Task.WhenAll(c, l);
+                catalogo = c.Result;
+                tarefas = l.Result;
+                Desenhar();
+            }
+            catch (ErroApi e) when (e.Status == 401) { MostrarLogin(e.Message); }
+            catch (Exception e) { carregando.text = e.Message; carregando.style.color = Estilo.Perigo; }
+        }
+
+        /// <summary>Cria (item null) ou edita um item do catálogo. Não mexe nas tarefas já cadastradas.</summary>
+        void MostrarEditarPadrao(TarefaPadrao item)
+        {
+            bool novo = item == null;
+            var t = NovaTela(false);
+            t.Add(Estilo.Texto_(novo ? "Adicionar ao catálogo" : "Editar do catálogo", 52, true));
+            t.Add(Estilo.Texto_("Mudar o catálogo não altera as tarefas que você já cadastrou.", 28, false, Estilo.TextoSuave));
+            var rolagem = Estilo.Rolagem();
+            t.Add(rolagem);
+
+            var titulo = Estilo.Campo("Nome da tarefa", "Ex.: Limpar a geladeira");
+            var minutos = Estilo.Campo("Tempo normal (minutos)", "Ex.: 20");
+            minutos.keyboardType = TouchScreenKeyboardType.NumberPad;
+            if (!novo)
+            {
+                titulo.value = item.titulo;
+                minutos.value = item.minutos.ToString();
+            }
+            string categoria = item?.categoria ?? "casa", intensidade = item?.intensidade ?? "moderada", recorrencia = item?.recorrencia ?? "avulsa";
+            var escCat = Estilo.Escolha("Categoria", new[] { ("casa", "Casa"), ("saude", "Saúde"), ("conhecimento", "Estudo"), ("financas", "Finanças"), ("outra", "Outra") }, categoria, v => categoria = v);
+            var escInt = Estilo.Escolha("Intensidade", new[] { ("leve", "Leve"), ("moderada", "Moderada"), ("pesada", "Pesada") },
+                intensidade, v => intensidade = v);
+            var escRec = Estilo.Escolha("Repete?", new[] { ("avulsa", "Só uma vez"), ("diaria", "Todo dia"), ("semanal", "Toda semana") },
+                recorrencia, v => recorrencia = v);
+            var descricao = Estilo.Campo("Detalhes (opcional)", "", true);
+            if (!string.IsNullOrEmpty(item?.descricao)) descricao.value = item.descricao;
+            var msg = Estilo.Texto_("", 30, false, Estilo.Perigo);
+            foreach (var e in new VisualElement[] { titulo, minutos, escCat, escInt, escRec, descricao, msg }) rolagem.Add(e);
+
+            async Task Salvar()
+            {
+                if (ocupado) return;
+                if (string.IsNullOrWhiteSpace(titulo.value)) { msg.text = "Dê um nome para a tarefa."; return; }
+                if (!int.TryParse(minutos.value.Trim(), out int min) || min < 1 || min > 600)
+                {
+                    msg.text = "Informe os minutos (de 1 a 600)."; return;
+                }
+                ocupado = true;
+                msg.style.color = Estilo.TextoSuave;
+                msg.text = "Salvando...";
+                try
+                {
+                    await api.SalvarTarefaPadrao(new TarefaPadrao
+                    {
+                        id = item?.id,
+                        titulo = titulo.value.Trim(),
+                        descricao = descricao.value.Trim(),
+                        categoria = categoria,
+                        minutos = min,
+                        intensidade = intensidade,
+                        recorrencia = recorrencia,
+                    });
+                    ocupado = false;
+                    Aviso(novo ? "Adicionada ao catálogo." : "Catálogo atualizado.", Estilo.Sucesso);
+                    await MostrarCatalogo();
+                }
+                catch (Exception e) { msg.style.color = Estilo.Perigo; msg.text = e.Message; }
+                finally { ocupado = false; }
+            }
+
+            async Task Remover()
+            {
+                if (ocupado) return;
+                ocupado = true;
+                try
+                {
+                    await api.RemoverTarefaPadrao(item.id);
+                    ocupado = false;
+                    Aviso($"\"{item.titulo}\" saiu do catálogo.", Estilo.Sucesso);
+                    await MostrarCatalogo();
+                }
+                catch (Exception e) { msg.style.color = Estilo.Perigo; msg.text = e.Message; }
+                finally { ocupado = false; }
+            }
+
+            rolagem.Add(Estilo.Botao("Salvar", () => _ = Salvar()));
+            rolagem.Add(Estilo.Botao("Cancelar", () => _ = MostrarCatalogo(), Estilo.TextoSuave, true));
+            if (!novo) rolagem.Add(Estilo.Botao("Remover do catálogo", () => _ = Remover(), Estilo.Perigo, true));
         }
 
         // =============================================================== Detalhe da tarefa

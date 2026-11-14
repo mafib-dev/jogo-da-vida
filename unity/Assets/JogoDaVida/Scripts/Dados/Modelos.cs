@@ -127,6 +127,32 @@ namespace JogoDaVida.Dados
         public string recorrencia;
     }
 
+    /// <summary>Item do catálogo de tarefas padrão (sem pontos: só preenche o cadastro).</summary>
+    [Serializable]
+    public class TarefaPadrao
+    {
+        public string id;
+        public string titulo;
+        public string descricao;
+        public string categoria;   // casa | saude | conhecimento | financas | outra
+        public int minutos;
+        public string intensidade;
+        public string recorrencia;
+        public int ordem;
+    }
+
+    /// <summary>Corpo para criar ou editar um item do catálogo (sem id e sem user_id).</summary>
+    [Serializable]
+    class EnvioTarefaPadrao
+    {
+        public string titulo;
+        public string descricao;
+        public string categoria;
+        public int minutos;
+        public string intensidade;
+        public string recorrencia;
+    }
+
     [Serializable]
     public class RespostaPontuacao
     {

@@ -140,6 +140,34 @@ namespace JogoDaVida.Dados
         public Task ComprarItem(string itemId) =>
             Autenticado("POST", "/rest/v1/rpc/comprar_item", JsonUtility.ToJson(new IdItem { p_item_id = itemId }));
 
+        // ------------------------------------------------- Catálogo de tarefas padrão
+
+        public Task<TarefaPadrao[]> CatalogoTarefas() =>
+            GetLista<TarefaPadrao>("/rest/v1/tarefas_padrao?select=*&order=ordem.asc,criada_em.asc");
+
+        /// <summary>Cria (id vazio) ou atualiza um item do catálogo.</summary>
+        public Task SalvarTarefaPadrao(TarefaPadrao t)
+        {
+            var corpo = JsonUtility.ToJson(new EnvioTarefaPadrao
+            {
+                titulo = t.titulo, descricao = t.descricao, categoria = t.categoria,
+                minutos = t.minutos, intensidade = t.intensidade, recorrencia = t.recorrencia,
+            });
+            return string.IsNullOrEmpty(t.id)
+                ? Autenticado("POST", "/rest/v1/tarefas_padrao", corpo)
+                : Autenticado("PATCH", "/rest/v1/tarefas_padrao?id=eq." + t.id, corpo);
+        }
+
+        public Task RemoverTarefaPadrao(string id) =>
+            Autenticado("DELETE", "/rest/v1/tarefas_padrao?id=eq." + id, null);
+
+        /// <summary>Devolve ao catálogo as tarefas iniciais que foram removidas. Retorna quantas voltaram.</summary>
+        public async Task<int> RestaurarTarefasPadrao()
+        {
+            var json = await Autenticado("POST", "/rest/v1/rpc/restaurar_tarefas_padrao", "{}");
+            return int.TryParse(json.Trim(), out var n) ? n : 0;
+        }
+
         // ------------------------------------------------------------------ HTTP
 
         async Task<T[]> GetLista<T>(string caminho)
