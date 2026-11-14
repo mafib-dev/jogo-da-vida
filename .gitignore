@@ -14,3 +14,5 @@ unity/[Ll]ogs/
 unity/[Uu]serSettings/
 unity/*.csproj
 unity/*.sln
+
+unity-import.log
