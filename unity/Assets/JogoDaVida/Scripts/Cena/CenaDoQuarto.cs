@@ -259,9 +259,18 @@ namespace JogoDaVida.Cena
             return r;
         }
 
-        /// <summary>Pinta um objeto. Funciona no pipeline padrão e no URP.</summary>
+        static Material materialBase;
+
+        /// <summary>
+        /// Pinta um objeto. Funciona no pipeline padrão e no URP.
+        /// O material padrão das primitivas não entra no build (a cena é vazia) e fica magenta
+        /// no celular, então troca pelo material de Resources, que garante o shader no APK.
+        /// </summary>
         public static void Pintar(Renderer r, Color cor)
         {
+            if (materialBase == null) materialBase = Resources.Load<Material>("BonecoMaterial");
+            if (materialBase != null && r.sharedMaterial != null && r.sharedMaterial.shader != materialBase.shader)
+                r.sharedMaterial = materialBase;
             var m = r.material;
             m.color = cor;
             if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", cor);
