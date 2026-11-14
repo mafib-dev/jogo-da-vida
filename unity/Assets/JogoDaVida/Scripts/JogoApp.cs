@@ -453,7 +453,7 @@ namespace JogoDaVida
                 var c = Estilo.CaixaCartao();
                 c.style.flexDirection = FlexDirection.Row;
                 c.style.alignItems = Align.Center;
-                if (feita) c.style.opacity = 0.55f;
+                if (feita) c.style.opacity = 0.8f;
 
                 var info = new VisualElement();
                 info.style.flexGrow = 1;
@@ -465,10 +465,12 @@ namespace JogoDaVida
                 info.RegisterCallback<ClickEvent>(_ => MostrarDetalhe(tarefa));
                 c.Add(info);
 
-                var botao = Estilo.Botao(feita ? "Feita" : "Feito!", () => _ = Concluir(tarefa), feita ? Estilo.TextoSuave : Estilo.Sucesso);
+                // Feita: contorno verde legível em vez do botão desabilitado (branco sobre cinza).
+                var botao = Estilo.Botao(feita ? "Feita" : "Feito!", () => { if (!feita) _ = Concluir(tarefa); },
+                    Estilo.Sucesso, contorno: feita);
                 botao.style.width = 200;
                 botao.style.marginLeft = 16;
-                botao.SetEnabled(!feita);
+                if (feita) botao.pickingMode = PickingMode.Ignore;
                 c.Add(botao);
                 return c;
             }

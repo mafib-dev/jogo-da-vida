@@ -29,6 +29,11 @@ namespace JogoDaVida.EditorTools
             }
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(Cena, true) };
 
+            // Material do boneco em Resources: garante que o shader Standard vá para o APK.
+            const string mat = "Assets/JogoDaVida/Resources/BonecoMaterial.mat";
+            if (AssetDatabase.LoadAssetAtPath<Material>(mat) == null)
+                AssetDatabase.CreateAsset(new Material(Shader.Find("Standard")), mat);
+
             PlayerSettings.companyName = "mafib";
             PlayerSettings.productName = "Jogo da Vida";
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "com.mafib.jogodavida");
