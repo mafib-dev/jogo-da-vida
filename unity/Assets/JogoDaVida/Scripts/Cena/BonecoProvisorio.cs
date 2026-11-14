@@ -49,7 +49,7 @@ namespace JogoDaVida.Cena
             var h = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             h.name = "Cabeça";
             h.transform.SetParent(corpo);
-            h.transform.localPosition = new Vector3(0, 1.45f, 0);
+            h.transform.localPosition = new Vector3(0, 1.3f, 0);
             h.transform.localScale = new Vector3(0.9f, 0.85f, 1.2f);
             Pintar(h, new Color(0.96f, 0.8f, 0.66f));
             cabeca = h.transform;

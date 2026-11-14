@@ -66,6 +66,7 @@ namespace JogoDaVida.Cena
 
             foreach (var col in GetComponentsInChildren<Collider>()) Destroy(col);
 
+            DefinirEstado(estado);
             LerHora();
             // Começa já no valor certo, sem "acender" a cena aos poucos.
             CalcularAlvos(out intensidadeAtual, out corDaLuzAtual, out ambienteAtual);
@@ -104,10 +105,12 @@ namespace JogoDaVida.Cena
             var parede = new Color(0.93f, 0.9f, 0.84f);
             float meioZ = (Fundo + Frente) / 2f, comprimento = Fundo - Frente;
 
-            Bloco("Piso", new Vector3(0, -0.05f, meioZ), new Vector3(Largura, 0.1f, comprimento), new Color(0.66f, 0.5f, 0.36f));
-            Bloco("Parede do fundo", new Vector3(0, Altura / 2, Fundo + 0.05f), new Vector3(Largura + 0.2f, Altura, 0.1f), parede);
-            Bloco("Parede esquerda", new Vector3(-Largura / 2 - 0.05f, Altura / 2, meioZ), new Vector3(0.1f, Altura, comprimento), parede);
-            Bloco("Parede direita", new Vector3(Largura / 2 + 0.05f, Altura / 2, meioZ), new Vector3(0.1f, Altura, comprimento), parede);
+            // Piso e paredes não fazem sombra: o quarto não tem teto, então a parede
+            // lateral escureceria metade da cena.
+            SemSombra(Bloco("Piso", new Vector3(0, -0.05f, meioZ), new Vector3(Largura, 0.1f, comprimento), new Color(0.66f, 0.5f, 0.36f)));
+            SemSombra(Bloco("Parede do fundo", new Vector3(0, Altura / 2, Fundo + 0.05f), new Vector3(Largura + 0.2f, Altura, 0.1f), parede));
+            SemSombra(Bloco("Parede esquerda", new Vector3(-Largura / 2 - 0.05f, Altura / 2, meioZ), new Vector3(0.1f, Altura, comprimento), parede));
+            SemSombra(Bloco("Parede direita", new Vector3(Largura / 2 + 0.05f, Altura / 2, meioZ), new Vector3(0.1f, Altura, comprimento), parede));
             Bloco("Rodapé", new Vector3(0, 0.05f, Fundo - 0.01f), new Vector3(Largura, 0.1f, 0.02f), Color.white);
 
             // Janela na parede do fundo, à direita
@@ -132,7 +135,7 @@ namespace JogoDaVida.Cena
             float camaX = -1.65f;
             Bloco("Cama (base)", new Vector3(camaX, 0.15f, 1.0f), new Vector3(1.05f, 0.3f, 1.95f), madeira);
             Bloco("Colchão", new Vector3(camaX, 0.4f, 1.0f), new Vector3(1.0f, 0.2f, 1.9f), new Color(0.95f, 0.95f, 0.93f));
-            Bloco("Coberta", new Vector3(camaX, 0.42f, 0.7f), new Vector3(1.02f, 0.2f, 1.3f), new Color(0.3f, 0.45f, 0.7f));
+            Bloco("Coberta", new Vector3(camaX, 0.42f, 0.69f), new Vector3(1.02f, 0.2f, 1.34f), new Color(0.3f, 0.45f, 0.7f));
             Bloco("Travesseiro", new Vector3(camaX, 0.56f, 1.68f), new Vector3(0.7f, 0.12f, 0.4f), Color.white);
             Bloco("Cabeceira da cama", new Vector3(camaX, 0.6f, 1.97f), new Vector3(1.05f, 1.2f, 0.06f), madeira);
 
@@ -238,6 +241,8 @@ namespace JogoDaVida.Cena
         }
 
         // ---------- Blocos ----------
+
+        static void SemSombra(Renderer r) => r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
         Renderer Bloco(string nome, Vector3 pos, Vector3 tamanho, Color cor) =>
             Primitiva(PrimitiveType.Cube, nome, pos, tamanho, cor);
