@@ -125,6 +125,13 @@ namespace JogoDaVida.Dados
             return JsonUtility.FromJson<Barras>(json);
         }
 
+        /// <summary>acao: "dormir" ou "acordar". Ao acordar, a barra de Energia enche pelas horas dormidas.</summary>
+        public async Task<ResultadoSono> RegistrarSono(string acao)
+        {
+            var json = await Autenticado("POST", "/rest/v1/rpc/registrar_sono", JsonUtility.ToJson(new AcaoSono { p_acao = acao }));
+            return JsonUtility.FromJson<ResultadoSono>(json);
+        }
+
         /// <summary>tipo: "hidratacao" (quantidade em ml) ou "movimento" (quantidade em minutos).</summary>
         public async Task<Barras> RegistrarBarra(string tipo, int quantidade, string intensidade = "moderada")
         {

@@ -295,13 +295,15 @@ namespace JogoDaVida
             linhaBarras.style.flexDirection = FlexDirection.Row;
             linhaBarras.style.marginTop = 6;
             // Declaradas antes porque as ações das barras capturam Desenhar(), que usa estas variáveis.
-            VisualElement blocoAgua, blocoMov, preencheAgua = null, preencheMov = null;
-            Label textoAgua = null, textoMov = null;
+            VisualElement blocoAgua, blocoMov, blocoEnergia, preencheAgua = null, preencheMov = null, preencheEnergia = null;
+            Label textoAgua = null, textoMov = null, textoEnergia = null;
             ScrollView lista = null;
             (blocoAgua, preencheAgua, textoAgua) = MiniBarra("Água", new Color(0.25f, 0.6f, 0.95f), () => EscolherAgua());
             (blocoMov, preencheMov, textoMov) = MiniBarra("Movimento", new Color(0.95f, 0.55f, 0.2f), () => EscolherMovimento());
+            (blocoEnergia, preencheEnergia, textoEnergia) = MiniBarra("Energia", new Color(0.55f, 0.4f, 0.85f), () => EscolherSono());
             blocoAgua.style.marginRight = 12;
-            linhaBarras.Add(blocoAgua); linhaBarras.Add(blocoMov);
+            blocoMov.style.marginRight = 12;
+            linhaBarras.Add(blocoAgua); linhaBarras.Add(blocoMov); linhaBarras.Add(blocoEnergia);
             t.Add(linhaBarras);
 
             lista = Estilo.Rolagem();
@@ -338,6 +340,8 @@ namespace JogoDaVida
                     textoAgua.text = $"Água {barras.hidratacao}%";
                     preencheMov.style.width = Length.Percent(barras.movimento);
                     textoMov.text = $"Movimento {barras.movimento}%";
+                    preencheEnergia.style.width = Length.Percent(barras.energia);
+                    textoEnergia.text = barras.dormindo_agora ? "Dormindo" : $"Energia {barras.energia}%";
                 }
 
                 lista.Clear();
@@ -413,6 +417,32 @@ namespace JogoDaVida
                     ("Treino 30 min", (Action)(() => _ = Registrar("movimento", 30, "pesada"))),
                     ("Treino 1 hora", (Action)(() => _ = Registrar("movimento", 60, "pesada"))),
                 });
+            }
+
+            void EscolherSono()
+            {
+                bool dormindo = barras != null && barras.dormindo_agora;
+                Escolher(dormindo ? "Bom dia!" : "Sono", dormindo
+                    ? new[] { ("Acordei", (Action)(() => _ = Sono("acordar"))) }
+                    : new[] { ("Vou dormir", (Action)(() => _ = Sono("dormir"))), ("Acordei", (Action)(() => _ = Sono("acordar"))) });
+            }
+
+            async Task Sono(string acao)
+            {
+                if (ocupado) return;
+                ocupado = true;
+                try
+                {
+                    var r = await api.RegistrarSono(acao);
+                    string extra = r.pontos > 0 ? $"  ·  +{r.pontos} pontos" : "";
+                    string texto = acao == "dormir" ? "Boa noite! As barras não descem enquanto você dorme."
+                        : r.horas > 0 ? $"Você dormiu {r.horas:0.0} h. Energia: {r.energia}%" : $"Bom dia! Energia: {r.energia}%";
+                    Aviso(texto + extra, Estilo.Sucesso);
+                    await Recarregar();
+                    if (r.subiu_de_nivel) MostrarSubiuDeNivel(r.nivel);
+                }
+                catch (Exception e) { Aviso(e.Message, Estilo.Perigo); }
+                finally { ocupado = false; }
             }
 
             async Task Registrar(string tipo, int quantidade, string intensidade)

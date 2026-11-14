@@ -110,7 +110,9 @@ namespace JogoDaVida.Dados
     {
         public int hidratacao;
         public int movimento;
-        public bool dormindo;
+        public int energia;
+        public bool dormindo;        // dormindo pelo horário do perfil ou de verdade
+        public bool dormindo_agora;  // disse "vou dormir" e ainda não acordou
         // Preenchidos só ao registrar
         public int pontos;
         public int moedas_ganhas;
@@ -118,7 +120,25 @@ namespace JogoDaVida.Dados
         public bool subiu_de_nivel;
 
         /// <summary>A barra mais baixa decide o estado visual (Banco de Ideias 3.4).</summary>
-        public int Menor => Math.Min(hidratacao, movimento);
+        public int Menor => Math.Min(Math.Min(hidratacao, movimento), energia);
+    }
+
+    /// <summary>Resposta de registrar_sono.</summary>
+    [Serializable]
+    public class ResultadoSono
+    {
+        public int energia;
+        public float horas;   // 0 quando não deu para calcular
+        public int pontos;
+        public int moedas_ganhas;
+        public int nivel;
+        public bool subiu_de_nivel;
+    }
+
+    [Serializable]
+    class AcaoSono
+    {
+        public string p_acao; // dormir | acordar
     }
 
     [Serializable]
