@@ -22,7 +22,7 @@ O app faz login no Supabase Auth e usa o token do usuário em tudo:
 | Ação | Chamada |
 |---|---|
 | Responder o perfil inicial | `POST /functions/v1/gerar-memoria` `{ nome, respostas: { rotina, moradia, atividade_fisica, sono, alimentacao, tarefas_dificeis, objetivos, saude } }` |
-| Cadastrar tarefa | `POST /functions/v1/pontuar-tarefa` `{ titulo, descricao?, contexto?, minutos, intensidade, recorrencia? }` |
+| Cadastrar tarefa | `POST /functions/v1/pontuar-tarefa` `{ titulo, descricao?, contexto?, minutos, intensidade, recorrencia?, dias? }` |
 | Dar mais contexto e recalcular | `POST /functions/v1/pontuar-tarefa` `{ tarefa_id, contexto }` |
 | Marcar como feita | `POST /rest/v1/rpc/concluir_tarefa` `{ p_tarefa_id }` → pontos, bônus de streak, moedas, nível, `subiu_de_nivel` |
 | Arquivar tarefa | `POST /rest/v1/rpc/arquivar_tarefa` `{ p_tarefa_id }` |
@@ -42,6 +42,8 @@ O app só lê as tabelas (exceto o catálogo `tarefas_padrao`, que o jogador edi
 - Moedas: 1 a cada 10 pontos de XP.
 - Streak: +5% por dia (ou semana) seguido além do primeiro, até +25%.
 - Tarefa diária só pode ser concluída uma vez por dia; semanal, uma vez por semana. Fuso: America/Sao_Paulo.
+- Diária com dias fixos (`dias`, 0 = domingo a 6 = sábado), como academia de seg a sex: a sequência só conta os dias marcados. Fazer num dia de folga vale os pontos e não quebra a sequência.
+- Tarefa avulsa não feita continua na lista e mostra "atrasada há N dias" (contado a partir de `criada_em`).
 
 ## Configuração do Qwen
 

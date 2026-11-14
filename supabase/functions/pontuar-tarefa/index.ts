@@ -9,6 +9,8 @@
 //   "minutos": 20,
 //   "intensidade": "leve" | "moderada" | "pesada",
 //   "recorrencia": "avulsa" | "diaria" | "semanal",   (opcional, padrão avulsa)
+//   "dias": [1,2,3,4,5],  (opcional, só para diária: dias fixos, 0 = domingo a 6 = sábado;
+//                          vazio = todo dia)
 //   "tarefa_id": "uuid"   (opcional: recalcula uma tarefa existente com mais contexto)
 // }
 //
@@ -33,6 +35,7 @@ import {
 
 const INTENSIDADES = ["leve", "moderada", "pesada"] as const;
 const RECORRENCIAS = ["avulsa", "diaria", "semanal"] as const;
+const NOMES_DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
 const SYSTEM = `Você é o juiz de pontuação do "Jogo da Vida", um jogo em que uma pessoa ganha pontos por tarefas reais do dia a dia.
 
@@ -64,6 +67,7 @@ type Entrada = {
   minutos?: unknown;
   intensidade?: unknown;
   recorrencia?: unknown;
+  dias?: unknown;
   tarefa_id?: unknown;
 };
 
@@ -112,6 +116,18 @@ Deno.serve(async (req) => {
   const intensidade = (texto(entrada.intensidade, 20) ?? existente?.intensidade) as Intensidade;
   const recorrencia = (texto(entrada.recorrencia, 20) ?? existente?.recorrencia ?? "avulsa") as string;
 
+  // Dias fixos: só valem para tarefa diária. Ausente = mantém o que já tinha;
+  // lista vazia ou com os 7 dias = todo dia (null no banco).
+  let dias: number[] | null = (existente?.dias as number[] | null) ?? null;
+  if (entrada.dias !== undefined && entrada.dias !== null) {
+    if (!Array.isArray(entrada.dias) || !entrada.dias.every((d) => Number.isInteger(d) && d >= 0 && d <= 6)) {
+      return json({ erro: "dias deve ser uma lista de 0 (domingo) a 6 (sábado)" }, 400);
+    }
+    const unicos = [...new Set(entrada.dias as number[])].sort((a, b) => a - b);
+    dias = unicos.length === 0 || unicos.length === 7 ? null : unicos;
+  }
+  if (recorrencia !== "diaria") dias = null;
+
   if (!titulo) return json({ erro: "titulo é obrigatório" }, 400);
   if (!Number.isInteger(minutos) || minutos < 1 || minutos > 600) {
     return json({ erro: "minutos deve ser um inteiro entre 1 e 600" }, 400);
@@ -136,7 +152,7 @@ Deno.serve(async (req) => {
     descricao ? `Descrição: ${descricao}` : null,
     `Duração: ${minutos} min`,
     `Intensidade informada: ${intensidade}`,
-    `Recorrência: ${recorrencia}`,
+    `Recorrência: ${recorrencia}${dias ? ` (só ${dias.map((d) => NOMES_DIAS[d]).join(", ")})` : ""}`,
     contexto ? `Contexto dado pelo jogador: ${contexto}` : null,
     `</tarefa>`,
   ].filter(Boolean).join("\n");
@@ -152,6 +168,7 @@ Deno.serve(async (req) => {
     minutos,
     intensidade,
     recorrencia,
+    dias,
     fator_pessoal: fator,
     pontos: calcularPontos(minutos, intensidade, fator),
     justificativa: llm?.justificativa?.slice(0, 500) ?? "Pontuação pela fórmula base (a LLM não respondeu).",
