@@ -17,7 +17,8 @@ namespace JogoDaVida.Cena
     public class CenaDoQuarto : MonoBehaviour
     {
         // Tamanho do quarto
-        const float Largura = 4.4f, Altura = 3.0f, Fundo = 2.0f, Frente = -2.8f;
+        // Largura de 4 m: na tela em pé do celular a câmera pega as duas paredes laterais com os móveis inteiros.
+        const float Largura = 4.0f, Altura = 3.0f, Fundo = 2.0f, Frente = -2.8f;
 
         // Assets do set inicial (ids do Poly Haven; ver Banco de Ideias 3.11). Se faltar, entra o bloco.
         const string PrefabCama = "Quarto/Cama/vintage_day_bed";
@@ -87,13 +88,13 @@ namespace JogoDaVida.Cena
         {
             cam = new GameObject("Câmera").AddComponent<Camera>();
             cam.transform.SetParent(transform, false);
-            cam.transform.localPosition = new Vector3(0, 1.1f, -4.2f);
+            cam.transform.localPosition = new Vector3(0, 1.1f, -4.6f);
             cam.transform.LookAt(transform.TransformPoint(new Vector3(0, 0.9f, 0)));
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.83f, 0.89f, 0.97f);
             // Só a faixa de cima da tela; o resto é a interface do app.
             cam.rect = new Rect(0, 1 - BonecoProvisorio.AlturaDaCena, 1, BonecoProvisorio.AlturaDaCena);
-            cam.fieldOfView = 35;
+            cam.fieldOfView = 40;
             cam.nearClipPlane = 0.1f;
             cam.farClipPlane = 20f;
         }
@@ -166,14 +167,14 @@ namespace JogoDaVida.Cena
             }
 
             // Mesa embaixo da janela, à direita
-            var mesa = new Vector3(1.5f, 0.74f, 1.62f);
+            var mesa = new Vector3(1.35f, 0.74f, 1.62f);
             Bloco("Mesa (tampo)", mesa, new Vector3(1.2f, 0.05f, 0.6f), madeira);
             foreach (var dx in new[] { -0.55f, 0.55f })
                 foreach (var dz in new[] { -0.25f, 0.25f })
                     Bloco("Mesa (pé)", new Vector3(mesa.x + dx, 0.36f, mesa.z + dz), new Vector3(0.05f, 0.72f, 0.05f), madeira);
 
             // Cadeira: a poltrona fica ao lado da mesa, virada para o quarto (quem olha vê a frente dela).
-            if (Movel("Cadeira", PrefabCadeira, new Vector3(1.5f, 0, 0.85f), 205f) == null)
+            if (Movel("Cadeira", PrefabCadeira, new Vector3(1.45f, 0, 0.8f), 205f) == null)
             {
                 var cadeira = new Vector3(1.4f, 0.45f, 1.05f);
                 var corCadeira = new Color(0.25f, 0.27f, 0.3f);
@@ -185,15 +186,15 @@ namespace JogoDaVida.Cena
             }
 
             // Garrafa de água: cheia quando o personagem está bem, vazia quando dá sinais
-            garrafa = Primitiva(PrimitiveType.Cylinder, "Garrafa", new Vector3(1.12f, 0.875f, 1.5f), new Vector3(0.07f, 0.11f, 0.07f), Color.blue);
+            garrafa = Primitiva(PrimitiveType.Cylinder, "Garrafa", new Vector3(0.97f, 0.875f, 1.5f), new Vector3(0.07f, 0.11f, 0.07f), Color.blue);
         }
 
         void MontarVagas()
         {
             CriarVaga("estante", new Vector3(-0.2f, 0, 1.8f));
             CriarVaga("quadro", new Vector3(-1.65f, 1.9f, 1.98f));
-            CriarVaga("planta", new Vector3(1.9f, 0, 0.4f));
-            CriarVaga("luminaria", new Vector3(1.95f, 0.765f, 1.75f));
+            CriarVaga("planta", new Vector3(1.7f, 0, 0.4f));
+            CriarVaga("luminaria", new Vector3(1.8f, 0.765f, 1.75f));
             CriarVaga("cabeceira", new Vector3(-0.9f, 0, 1.72f));
         }
 
