@@ -211,6 +211,8 @@ namespace JogoDaVida.Cena
             atual = alvo = PosturaDe(EstadoVisual.Normal);
             posicaoBase = transform.localPosition;
             rotacaoBase = transform.localRotation;
+            MontarRoupas(m);
+
             if (usaAnimator)
             {
                 anim.applyRootMotion = false;
@@ -225,6 +227,7 @@ namespace JogoDaVida.Cena
             else
                 Posar(0f);
             Aterrar();
+            MedirSolaDoTenis();
             pronto = true;
         }
 
@@ -295,6 +298,102 @@ namespace JogoDaVida.Cena
             }
             Destroy(assada);
             return min <= max;
+        }
+
+        // ---------- Roupas (a loja liga; o padrão é só a cueca) ----------
+
+        /// <summary>Peças aceitas por <see cref="DefinirRoupa"/>.</summary>
+        public static readonly string[] Pecas = { "camiseta", "calca", "tenis" };
+
+        readonly Dictionary<string, GameObject> roupas = new Dictionary<string, GameObject>();
+        readonly HashSet<string> vestidas = new HashSet<string>();
+        SkinnedMeshRenderer corpo;
+        Material[] materiaisDoCorpo;
+        GameObject cueca;
+        float solaDoTenis;   // quanto o tênis levanta o personagem (m, no mundo)
+
+        void MontarRoupas(Transform m)
+        {
+            foreach (var r in m.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+            {
+                switch (r.name)
+                {
+                    case "Camiseta": roupas["camiseta"] = r.gameObject; break;
+                    case "Calca": roupas["calca"] = r.gameObject; break;
+                    case "Tenis": roupas["tenis"] = r.gameObject; break;
+                    case "Cueca": cueca = r.gameObject; break;
+                    case "Corpo": corpo = r; break;
+                }
+            }
+            if (corpo != null) materiaisDoCorpo = corpo.sharedMaterials;
+            foreach (var g in roupas.Values) g.SetActive(false);
+            AtualizarCorpo();
+        }
+
+        /// <summary>Altura da sola: mede o pé com e sem o tênis (uma vez, ao montar).</summary>
+        void MedirSolaDoTenis()
+        {
+            if (!roupas.TryGetValue("tenis", out var tenis) || !Medir(out float semTenis, out _)) return;
+            tenis.SetActive(true);
+            if (Medir(out float comTenis, out _)) solaDoTenis = Mathf.Max(0f, semTenis - comTenis);
+            tenis.SetActive(false);
+        }
+
+        static string Normalizar(string peca) =>
+            (peca ?? "").Trim().ToLowerInvariant().Replace("ç", "c").Replace("ê", "e");
+
+        /// <summary>
+        /// Liga ou desliga uma peça de roupa ("camiseta", "calca" ou "tenis"). A pele debaixo da
+        /// peça deixa de ser desenhada (para não vazar pela roupa); com a calça, a cueca some.
+        /// </summary>
+        public void DefinirRoupa(string peca, bool visivel)
+        {
+            var nome = Normalizar(peca);
+            if (!roupas.TryGetValue(nome, out var obj))
+            {
+                Debug.LogWarning("[PersonagemHumano] peça de roupa desconhecida: " + peca);
+                return;
+            }
+            bool estava = vestidas.Contains(nome);
+            if (estava == visivel) return;
+            if (visivel) vestidas.Add(nome); else vestidas.Remove(nome);
+            obj.SetActive(visivel);
+            if (nome == "tenis" && modelo != null)
+                modelo.position += Vector3.up * (visivel ? solaDoTenis : -solaDoTenis);
+            AtualizarCorpo();
+        }
+
+        /// <summary>Se a peça ("camiseta", "calca" ou "tenis") está ligada.</summary>
+        public bool EstaVestindo(string peca) => vestidas.Contains(Normalizar(peca));
+
+        void AtualizarCorpo()
+        {
+            if (cueca != null) cueca.SetActive(!vestidas.Contains("calca"));
+            if (corpo == null || materiaisDoCorpo == null) return;
+            var mats = (Material[])materiaisDoCorpo.Clone();
+            for (int i = 0; i < mats.Length; i++)
+            {
+                var n = mats[i] != null ? mats[i].name : "";
+                if ((n.StartsWith("M_Corpo_Tronco") && vestidas.Contains("camiseta"))
+                    || (n.StartsWith("M_Corpo_Pernas") && vestidas.Contains("calca"))
+                    || (n.StartsWith("M_Corpo_Pes") && vestidas.Contains("tenis")))
+                    mats[i] = Invisivel();
+            }
+            corpo.sharedMaterials = mats;
+        }
+
+        static Material invisivel;
+
+        /// <summary>Material que não desenha nada (Resources/Invisivel.shader). Material nulo vira magenta.</summary>
+        static Material Invisivel()
+        {
+            if (invisivel == null)
+            {
+                var shader = Resources.Load<Shader>("Invisivel");
+                invisivel = new Material(shader != null ? shader : Shader.Find("Hidden/Internal-Colored")) { name = "Invisivel" };
+                if (shader == null) invisivel.color = Color.clear;
+            }
+            return invisivel;
         }
 
         // ---------- API usada pelo BonecoProvisorio ----------

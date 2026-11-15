@@ -3,7 +3,8 @@ Gera o personagem v3 do Jogo da Vida com o MPFB (MakeHuman Plugin for Blender).
 
 Ajustado a partir de fotos do Matheus: cabelo escuro de cachos curtos com laterais em
 degradê, barba cheia aparada, óculos de meia-armação, pele clara, porte atlético forte
-(~1,75 m), camiseta justa e calça pretas de treino e tênis pretos de sola branca.
+(~1,75 m), só de cueca boxer cinza-escura. Camiseta justa e calça pretas de treino e tênis
+pretos de sola branca vão no FBX como malhas separadas, desligadas no jogo até a loja ligar.
 Todas as características ficam nas constantes do bloco "configuração" logo abaixo.
 
 Cabelo e barba são "shell fur": várias cascas sobre a pele, cada uma com recorte por alpha.
@@ -20,7 +21,7 @@ Saídas (relativas à raiz do repositório):
     arte/blender/personagem.blend
     unity/Assets/JogoDaVida/Arte/Personagem/Personagem.fbx (+ texturas na mesma pasta; texturas
         antigas que não são mais usadas e os materiais extraídos pelo Unity são apagados)
-    capturas/personagem-frente.png, personagem-34.png, personagem-rosto.png,
+    capturas/cueca-frente.png, cueca-34.png, cueca-costas.png, cueca-rosto.png,
     capturas/personagem-rosto-sorriso.png, personagem-rosto-cansado.png
 
     capturas/personagem-jogo.png (pose relaxada, enquadramento da câmera do jogo)
@@ -90,7 +91,8 @@ TRAPEZIO_ALTURA = 0.010       # quanto (m) o trapézio sobe entre o pescoço e o
 
 # --- Pele clara: a textura caucasiana jovem quase como é (só um pouco menos avermelhada).
 PELE = "skins/young_caucasian_male/young_caucasian_male.mhmat"
-PELE_COR_MEDIA = (0.88, 0.675, 0.555)   # média alvo da textura (sRGB 0..1); original ~(0.90, 0.67, 0.54)
+PELE_COR_MEDIA = (0.93, 0.755, 0.655)   # média alvo da textura (sRGB 0..1); original ~(0.90, 0.67, 0.54)
+                                        # clara e levemente rosada (antes: 0.88, 0.675, 0.555)
 
 # --- Olhos castanhos (a textura brownlight escurecida; a brown original sai avermelhada).
 TEXTURA_DOS_OLHOS = ("brown_eye.png", "eyes/materials/brownlight_eye.png")
@@ -162,9 +164,25 @@ CAMISETA_FOLGA = 0.0035                  # distância alvo (m) da manga até a p
 CAMISETA_APERTO_MANGA = 0.80             # quanto da folga extra some nas mangas (0..1)
 CAMISETA_APERTO_TRONCO = 0.35            # e no tronco
 
+# --- Roupa padrão: só cueca boxer cinza-escura. Camiseta, calça e tênis continuam no FBX
+# (malhas separadas, mesmo esqueleto), mas o jogo começa com elas desligadas (a loja liga).
+# O corpo fica inteiro; a pele que fica sob cada peça vira um material próprio do Corpo
+# (M_Corpo_Tronco / M_Corpo_Pernas / M_Corpo_Pes), para o Unity esconder só o que a roupa cobre.
+# A cueca é uma casca de faces da pelve do próprio corpo (sem asset de roupa íntima no MPFB).
+CUECA_CINTURA = 0.570                    # topo do elástico, em fração da altura da pele
+CUECA_PERNA = 0.405                      # barra nas coxas, em fração da altura da pele
+CUECA_AFASTAMENTO = 0.0035               # m: distância da pele
+CUECA_VOLUME = 0.010                     # m: volume na frente
+CUECA_COR = (0.045, 0.045, 0.050)
+CUECA_ELASTICO_COR = (0.20, 0.20, 0.215)
+CUECA_OSSOS = ("mixamorig:Hips", "mixamorig:Spine", "mixamorig:LeftUpLeg", "mixamorig:RightUpLeg")
+REGIOES_SOB_A_ROUPA = {"Tronco": "M_Corpo_Tronco", "Pernas": "M_Corpo_Pernas", "Pes": "M_Corpo_Pes"}
+ROUPA_CINTURA = 0.98                     # m: pele coberta pela roupa acima disso é da camiseta
+
 # Aspereza (roughness) por material: tira o aspecto de plástico do cabelo, barba e tênis.
 ASPEREZA = {"M_Corpo": 0.55, "M_Sobrancelhas": 0.9,
-            "M_Roupa": 0.85, "M_Tenis": 0.6, "M_Oculos": 0.3}
+            "M_Roupa": 0.85, "M_Tenis": 0.6, "M_Oculos": 0.3,
+            "M_Corpo_Tronco": 0.55, "M_Corpo_Pernas": 0.55, "M_Corpo_Pes": 0.55}
 
 # (arquivo, tipo do MPFB, nome final)
 ASSETS = [
@@ -701,23 +719,40 @@ def afunilar_calca(roupa, base, bvh, rig):
 
 
 def limpar_corpo(base, rig, manter=("_barba",)):
-    """Apaga helpers/juntas e a pele escondida debaixo da roupa; deixa só grupos de ossos."""
+    """Apaga helpers/juntas; deixa só grupos de ossos. A pele debaixo da roupa NÃO é apagada
+    (o personagem anda de cueca e a roupa é opcional): devolve, para cada região
+    (Tronco, Pernas, Pes), os polígonos que a roupa cobre (grupos "Delete.*" do MakeHuman)."""
     grupos = {g.index: g.name for g in base.vertex_groups}
     manter_idx = next(i for i, n in grupos.items() if n == "body")
-    apagar_idx = {i for i, n in grupos.items() if n.startswith("Delete.")}
 
     bm = bmesh.new()
     bm.from_mesh(base.data)
     deform = bm.verts.layers.deform.verify()
-    remover = []
-    for v in bm.verts:
-        dv = v[deform]
-        if dv.get(manter_idx, 0.0) <= 0.0 or any(dv.get(i, 0.0) > 0.0 for i in apagar_idx):
-            remover.append(v)
+    remover = [v for v in bm.verts if v[deform].get(manter_idx, 0.0) <= 0.0]
     bmesh.ops.delete(bm, geom=remover, context="VERTS")
     bm.to_mesh(base.data)
     bm.free()
     base.data.update()
+
+    # Pele coberta por cada peça (um polígono é coberto se algum vértice está no grupo).
+    regioes = {"Tronco": set(), "Pernas": set(), "Pes": set()}
+    for g in base.vertex_groups:
+        if not g.name.startswith("Delete."):
+            continue
+        dentro = set(indices_do_grupo(base, g.name))
+        sapato = "shoe" in g.name.lower()
+        for p in base.data.polygons:
+            if not any(i in dentro for i in p.vertices):
+                continue
+            if sapato:
+                regioes["Pes"].add(p.index)
+            elif p.center.z > ROUPA_CINTURA:
+                regioes["Tronco"].add(p.index)
+            else:
+                regioes["Pernas"].add(p.index)
+        log("pele sob %s: %d vértices" % (g.name, len(dentro)))
+    regioes["Pernas"] -= regioes["Pes"]
+    regioes["Tronco"] -= regioes["Pes"]
 
     for m in list(base.modifiers):
         if m.type != "ARMATURE":
@@ -732,6 +767,92 @@ def limpar_corpo(base, rig, manter=("_barba",)):
             if m.type != "ARMATURE":
                 o.modifiers.remove(m)
     log("corpo: %d vértices depois da limpeza" % len(base.data.vertices))
+    return regioes
+
+
+def materiais_das_regioes(base, regioes):
+    """Pele sob a roupa em materiais próprios (mesma textura): o Unity esconde cada um
+    quando a peça correspondente está ligada, para o corpo não vazar pela roupa."""
+    pele = base.data.materials[0]
+    for regiao, nome_mat in REGIOES_SOB_A_ROUPA.items():
+        mat = pele.copy()
+        mat.name = nome_mat
+        base.data.materials.append(mat)
+        indice = len(base.data.materials) - 1
+        for i in regioes[regiao]:
+            base.data.polygons[i].material_index = indice
+        log("%s: %d polígonos" % (nome_mat, len(regioes[regiao])))
+
+
+def criar_cueca(base, rig, altura):
+    """Cueca boxer: casca das faces da pelve (só as que seguem quadril/coxas), afastada da
+    pele pela normal, com um volume discreto na frente e o elástico mais claro em cima."""
+    cintura, perna = altura * CUECA_CINTURA, altura * CUECA_PERNA
+    me = base.data
+    idx = {base.vertex_groups[n].index for n in CUECA_OSSOS if n in base.vertex_groups}
+    peso = np.zeros(len(me.vertices), np.float32)
+    for v in me.vertices:
+        peso[v.index] = sum(g.weight for g in v.groups if g.group in idx)
+    manter = {p.index for p in me.polygons
+              if perna <= p.center.z <= cintura and np.mean([peso[i] for i in p.vertices]) > 0.6}
+    cueca = copiar_faces(base, "Cueca", manter)
+    for g in list(cueca.vertex_groups):
+        if g.name.startswith("_"):
+            cueca.vertex_groups.remove(g)
+
+    cm = cueca.data
+    cm.update()
+    meio = [v for v in cm.vertices if abs(v.co.x) < 0.012]
+    gancho = min(v.co.z for v in meio)
+    frente = min(v.co.y for v in meio if gancho < v.co.z < gancho + 0.12)
+    centro = Vector((0.0, frente, gancho + 0.055))
+
+    # bordas retas: a seleção por faces deixa degraus; desliza cada vértice da borda pela
+    # pele até a altura exata da cintura ou da barra.
+    bm = bmesh.new()
+    bm.from_mesh(cm)
+    borda = {v.index for e in bm.edges if e.is_boundary for v in e.verts}
+    bm.free()
+    pele = bvh_atual(base)
+    meio_z = (cintura + perna) / 2
+    topo, nivelar = set(), {}
+    for i in borda:
+        co = cm.vertices[i].co
+        alvo_z = cintura if co.z > meio_z else perna
+        if co.z > meio_z:
+            topo.add(i)
+        loc = pele.find_nearest(Vector((co.x, co.y, alvo_z)))[0]
+        if loc is not None:
+            nivelar[i] = loc - co
+    mover_vertices(cueca, nivelar)
+    cm.update()
+
+    # afastamento pela normal + volume na frente (a frente do MakeHuman é -Y)
+    desloc = {}
+    for v in cm.vertices:
+        d = v.normal * CUECA_AFASTAMENTO
+        r = Vector((v.co.x / 0.055, (v.co.y - centro.y) / 0.06, (v.co.z - centro.z) / 0.06)).length
+        if v.co.y < centro.y + 0.05 and r < 1.0:
+            d += Vector((0, -1, 0)) * CUECA_VOLUME * float(suave(1.0 - r))
+        desloc[v.index] = d
+    mover_vertices(cueca, desloc)
+
+    # materiais: tecido e elástico
+    cm.materials.clear()
+    for nome, cor in (("M_Cueca", CUECA_COR), ("M_Cueca_Elastico", CUECA_ELASTICO_COR)):
+        mat = bpy.data.materials.new(nome)
+        mat.use_nodes = True
+        bsdf = mat.node_tree.nodes.get("Principled BSDF")
+        bsdf.inputs["Base Color"].default_value = (*cor, 1.0)
+        bsdf.inputs["Roughness"].default_value = 0.85
+        mat.diffuse_color = (*cor, 1.0)
+        cm.materials.append(mat)
+    # elástico: a fileira de faces que encosta na borda de cima (segue o anel da malha)
+    for p in cm.polygons:
+        p.material_index = 1 if any(i in topo for i in p.vertices) else 0
+    log("cueca: %d faces, gancho a %.3f m, cintura %.3f, barra %.3f" % (
+        len(cm.polygons), gancho, cintura, perna))
+    return cueca
 
 
 def separar_roupa(roupa):
@@ -1594,15 +1715,22 @@ def renderizar(rig, base):
                 for k in o.data.shape_keys.key_blocks:
                     k.value = valores.get(k.name, 0.0)
 
+    # como o jogo começa: só de cueca (as roupas da loja ficam fora do render)
+    for o in rig.children_recursive:
+        if o.name in ("Camiseta", "Calca", "Roupa", "Tenis"):
+            o.hide_render = True
+
     os.makedirs(CAPTURAS, exist_ok=True)
     centro = Vector((0, 0, altura / 2))
     olhar(centro, 3.6, 0, 50)
-    salvar("personagem-frente.png", 1080, 1440)
+    salvar("cueca-frente.png", 1080, 1440)
     olhar(centro, 3.6, -35, 50)
-    salvar("personagem-34.png", 1080, 1440)
+    salvar("cueca-34.png", 1080, 1440)
+    olhar(centro, 3.6, 180, 50)
+    salvar("cueca-costas.png", 1080, 1440)
     rosto = pos_cabeca + Vector((0, 0, 0.03))
     olhar(rosto, 0.95, -12, 85)
-    salvar("personagem-rosto.png", 1080, 1080)
+    salvar("cueca-rosto.png", 1080, 1080)
     chaves({"Rosto_Sorriso": 1.0})
     salvar("personagem-rosto-sorriso.png", 1080, 1080)
     chaves({"Rosto_OlhosCansados": 1.0})
@@ -1643,7 +1771,7 @@ def main():
     afunilar_calca(filhos["Roupa"][0], base, bvh, rig)
 
     altura = altura_da_pele(base)
-    limpar_corpo(base, rig)
+    regioes = limpar_corpo(base, rig)
     renomear(base, rig, filhos)
     partes = separar_roupa(filhos["Roupa"][0])
     for nome, obj in partes.items():
@@ -1654,6 +1782,8 @@ def main():
     barba, camada_barba = criar_barba(base)
     cabelo, camada_cabelo = criar_cabelo(base, ref)
     oculos = criar_oculos(base, rig, bvh_atual(base), ref)
+    materiais_das_regioes(base, regioes)
+    criar_cueca(base, rig, altura)
 
     malhas = [o for o in rig.children_recursive if o.type == "MESH"]
     suavizar(malhas)
