@@ -6,9 +6,11 @@ namespace JogoDaVida.Cena
 {
     /// <summary>
     /// Quarto do personagem: piso, paredes, janela, cama, mesa, câmera e luz.
-    /// Nesta etapa é tudo feito de blocos (primitivas), só para acertar
-    /// enquadramento, tamanho e iluminação. Os móveis modelados entram depois
-    /// no lugar dos blocos, sem mudar quem usa esta classe.
+    ///
+    /// Os móveis vêm dos prefabs em Resources/Quarto/&lt;Tipo&gt;/&lt;id&gt; e as texturas de piso e parede
+    /// dos materiais em Resources/Quarto/Texturas/&lt;Superfície&gt;/&lt;id&gt; (gerados pelo ImportarQuarto a partir
+    /// de Arte/Quarto). O que ainda não tem modelo continua feito de blocos (primitivas), então a cena
+    /// funciona com qualquer subconjunto dos assets.
     ///
     /// Medidas em metros. A câmera olha para +Z; o personagem fica na origem.
     /// </summary>
@@ -16,6 +18,14 @@ namespace JogoDaVida.Cena
     {
         // Tamanho do quarto
         const float Largura = 4.4f, Altura = 3.0f, Fundo = 2.0f, Frente = -2.8f;
+
+        // Assets do set inicial (ids do Poly Haven; ver Banco de Ideias 3.11). Se faltar, entra o bloco.
+        const string PrefabCama = "Quarto/Cama/vintage_day_bed";
+        const string PrefabCadeira = "Quarto/Cadeira/chinese_armchair";
+        const string MaterialPiso = "Quarto/Texturas/Piso/wood_floor";
+        const string MaterialParede = "Quarto/Texturas/Parede/beige_wall_001";
+        // As texturas do Poly Haven cobrem ~2 m de parede/piso real; repete a partir disso.
+        const float MetrosPorTextura = 2f;
 
         Camera cam;
         Light luz;
@@ -107,10 +117,17 @@ namespace JogoDaVida.Cena
 
             // Piso e paredes não fazem sombra: o quarto não tem teto, então a parede
             // lateral escureceria metade da cena.
-            SemSombra(Bloco("Piso", new Vector3(0, -0.05f, meioZ), new Vector3(Largura, 0.1f, comprimento), new Color(0.66f, 0.5f, 0.36f)));
-            SemSombra(Bloco("Parede do fundo", new Vector3(0, Altura / 2, Fundo + 0.05f), new Vector3(Largura + 0.2f, Altura, 0.1f), parede));
-            SemSombra(Bloco("Parede esquerda", new Vector3(-Largura / 2 - 0.05f, Altura / 2, meioZ), new Vector3(0.1f, Altura, comprimento), parede));
-            SemSombra(Bloco("Parede direita", new Vector3(Largura / 2 + 0.05f, Altura / 2, meioZ), new Vector3(0.1f, Altura, comprimento), parede));
+            var piso = Bloco("Piso", new Vector3(0, -0.05f, meioZ), new Vector3(Largura, 0.1f, comprimento), new Color(0.66f, 0.5f, 0.36f));
+            SemSombra(piso);
+            Texturizar(piso, MaterialPiso, Largura, comprimento);
+
+            var fundo = Bloco("Parede do fundo", new Vector3(0, Altura / 2, Fundo + 0.05f), new Vector3(Largura + 0.2f, Altura, 0.1f), parede);
+            var esquerda = Bloco("Parede esquerda", new Vector3(-Largura / 2 - 0.05f, Altura / 2, meioZ), new Vector3(0.1f, Altura, comprimento), parede);
+            var direita = Bloco("Parede direita", new Vector3(Largura / 2 + 0.05f, Altura / 2, meioZ), new Vector3(0.1f, Altura, comprimento), parede);
+            SemSombra(fundo); SemSombra(esquerda); SemSombra(direita);
+            Texturizar(fundo, MaterialParede, Largura, Altura);
+            Texturizar(esquerda, MaterialParede, comprimento, Altura);
+            Texturizar(direita, MaterialParede, comprimento, Altura);
             Bloco("Rodapé", new Vector3(0, 0.05f, Fundo - 0.01f), new Vector3(Largura, 0.1f, 0.02f), Color.white);
 
             // Janela na parede do fundo, à direita
@@ -131,13 +148,22 @@ namespace JogoDaVida.Cena
             var tapete = Primitiva(PrimitiveType.Cylinder, "Tapete", new Vector3(0, 0.005f, 0.1f), new Vector3(1.9f, 0.005f, 1.4f), new Color(0.75f, 0.32f, 0.3f));
             tapete.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
-            // Cama encostada na parede esquerda
-            float camaX = -1.65f;
-            Bloco("Cama (base)", new Vector3(camaX, 0.15f, 1.0f), new Vector3(1.05f, 0.3f, 1.95f), madeira);
-            Bloco("Colchão", new Vector3(camaX, 0.4f, 1.0f), new Vector3(1.0f, 0.2f, 1.9f), new Color(0.95f, 0.95f, 0.93f));
-            Bloco("Coberta", new Vector3(camaX, 0.42f, 0.69f), new Vector3(1.02f, 0.2f, 1.34f), new Color(0.3f, 0.45f, 0.7f));
-            Bloco("Travesseiro", new Vector3(camaX, 0.56f, 1.68f), new Vector3(0.7f, 0.12f, 0.4f), Color.white);
-            Bloco("Cabeceira da cama", new Vector3(camaX, 0.6f, 1.97f), new Vector3(1.05f, 1.2f, 0.06f), madeira);
+            // Cama encostada na parede esquerda, comprida no sentido do fundo (eixo Z).
+            float camaX = -1.65f, camaZ = 1.0f;
+            // O modelo é comprido no X; girado 90° o comprimento fica no Z e o encosto vira para a parede.
+            var cama = Movel("Cama", PrefabCama, new Vector3(camaX, 0, camaZ), 90f);
+            if (cama != null)
+            {
+                Encostar(cama, -Largura / 2);
+            }
+            else
+            {
+                Bloco("Cama (base)", new Vector3(camaX, 0.15f, camaZ), new Vector3(1.05f, 0.3f, 1.95f), madeira);
+                Bloco("Colchão", new Vector3(camaX, 0.4f, camaZ), new Vector3(1.0f, 0.2f, 1.9f), new Color(0.95f, 0.95f, 0.93f));
+                Bloco("Coberta", new Vector3(camaX, 0.42f, 0.69f), new Vector3(1.02f, 0.2f, 1.34f), new Color(0.3f, 0.45f, 0.7f));
+                Bloco("Travesseiro", new Vector3(camaX, 0.56f, 1.68f), new Vector3(0.7f, 0.12f, 0.4f), Color.white);
+                Bloco("Cabeceira da cama", new Vector3(camaX, 0.6f, 1.97f), new Vector3(1.05f, 1.2f, 0.06f), madeira);
+            }
 
             // Mesa embaixo da janela, à direita
             var mesa = new Vector3(1.5f, 0.74f, 1.62f);
@@ -146,14 +172,17 @@ namespace JogoDaVida.Cena
                 foreach (var dz in new[] { -0.25f, 0.25f })
                     Bloco("Mesa (pé)", new Vector3(mesa.x + dx, 0.36f, mesa.z + dz), new Vector3(0.05f, 0.72f, 0.05f), madeira);
 
-            // Cadeira
-            var cadeira = new Vector3(1.4f, 0.45f, 1.05f);
-            var corCadeira = new Color(0.25f, 0.27f, 0.3f);
-            Bloco("Cadeira (assento)", cadeira, new Vector3(0.42f, 0.05f, 0.42f), corCadeira);
-            Bloco("Cadeira (encosto)", cadeira + new Vector3(0, 0.3f, -0.2f), new Vector3(0.42f, 0.5f, 0.04f), corCadeira);
-            foreach (var dx in new[] { -0.18f, 0.18f })
-                foreach (var dz in new[] { -0.18f, 0.18f })
-                    Bloco("Cadeira (pé)", new Vector3(cadeira.x + dx, 0.21f, cadeira.z + dz), new Vector3(0.04f, 0.43f, 0.04f), corCadeira);
+            // Cadeira: a poltrona fica ao lado da mesa, virada para o quarto (quem olha vê a frente dela).
+            if (Movel("Cadeira", PrefabCadeira, new Vector3(1.5f, 0, 0.85f), 205f) == null)
+            {
+                var cadeira = new Vector3(1.4f, 0.45f, 1.05f);
+                var corCadeira = new Color(0.25f, 0.27f, 0.3f);
+                Bloco("Cadeira (assento)", cadeira, new Vector3(0.42f, 0.05f, 0.42f), corCadeira);
+                Bloco("Cadeira (encosto)", cadeira + new Vector3(0, 0.3f, -0.2f), new Vector3(0.42f, 0.5f, 0.04f), corCadeira);
+                foreach (var dx in new[] { -0.18f, 0.18f })
+                    foreach (var dz in new[] { -0.18f, 0.18f })
+                        Bloco("Cadeira (pé)", new Vector3(cadeira.x + dx, 0.21f, cadeira.z + dz), new Vector3(0.04f, 0.43f, 0.04f), corCadeira);
+            }
 
             // Garrafa de água: cheia quando o personagem está bem, vazia quando dá sinais
             garrafa = Primitiva(PrimitiveType.Cylinder, "Garrafa", new Vector3(1.12f, 0.875f, 1.5f), new Vector3(0.07f, 0.11f, 0.07f), Color.blue);
@@ -238,6 +267,49 @@ namespace JogoDaVida.Cena
             corDaLuzAtual = Color.Lerp(corDaLuzAtual, c, k);
             ambienteAtual = Color.Lerp(ambienteAtual, a, k);
             Aplicar();
+        }
+
+        // ---------- Móveis modelados ----------
+
+        /// <summary>
+        /// Instancia um prefab de Resources/Quarto apoiado no chão em <paramref name="pos"/>, girado
+        /// <paramref name="giroY"/> graus. Devolve null se o prefab não existe (aí entra o bloco).
+        /// </summary>
+        Transform Movel(string nome, string recurso, Vector3 pos, float giroY)
+        {
+            var prefab = Resources.Load<GameObject>(recurso);
+            if (prefab == null) return null;
+            var go = Instantiate(prefab, transform);
+            go.name = nome;
+            go.transform.localPosition = pos;
+            go.transform.localRotation = Quaternion.Euler(0, giroY, 0);
+            return go.transform;
+        }
+
+        /// <summary>Desloca o móvel no X para que a lateral dele encoste na parede em <paramref name="xDaParede"/>.</summary>
+        void Encostar(Transform movel, float xDaParede)
+        {
+            var rends = movel.GetComponentsInChildren<Renderer>();
+            if (rends.Length == 0) return;
+            var caixa = rends[0].bounds;
+            foreach (var r in rends) caixa.Encapsulate(r.bounds);
+            float borda = xDaParede < 0 ? caixa.min.x : caixa.max.x;
+            float folga = xDaParede < 0 ? 0.02f : -0.02f;
+            var alvo = transform.TransformPoint(new Vector3(xDaParede + folga, 0, 0)).x;
+            movel.position += new Vector3(alvo - borda, 0, 0);
+        }
+
+        /// <summary>
+        /// Troca a cor chapada de um bloco pelo material texturizado de Resources/Quarto/Texturas, repetindo
+        /// a textura conforme o tamanho real da superfície. Se o material não existe, o bloco fica como está.
+        /// </summary>
+        static void Texturizar(Renderer r, string recurso, float largura, float altura)
+        {
+            var original = Resources.Load<Material>(recurso);
+            if (original == null) return;
+            var m = new Material(original);
+            m.mainTextureScale = new Vector2(largura / MetrosPorTextura, altura / MetrosPorTextura);
+            r.sharedMaterial = m;
         }
 
         // ---------- Blocos ----------
